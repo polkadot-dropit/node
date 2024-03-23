@@ -591,6 +591,7 @@ impl pallet_multisig::Config for Runtime {
 }
 
 parameter_types! {
+	// Keep preimage deposits, as these items are heavy and does not intersect with the average user experience.
 	pub const PreimageBaseDeposit: Balance = deposit(2, 64);
 	pub const PreimageByteDeposit: Balance = deposit(0, 1);
 	pub const PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
