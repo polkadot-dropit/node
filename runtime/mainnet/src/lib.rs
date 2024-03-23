@@ -228,7 +228,11 @@ pub const MICROUNIT: Balance = 1_000_000;
 pub const MILLIUNIT: Balance = 1_000 * MICROUNIT;
 pub const UNIT: Balance = 1_000 * MILLIUNIT;
 
-pub const EXISTENTIAL_DEPOSIT: Balance = MILLIUNIT;
+// AUDIT: Existential deposit is explicitly zero.
+pub const EXISTENTIAL_DEPOSIT: Balance = 0;
+
+// AUDIT: Some pallets are given zero deposit.
+pub const ZERO_DEPOSIT: Balance = 0;
 
 pub const fn deposit(items: u32, bytes: u32) -> Balance {
 	(items as Balance * 20 * UNIT + (bytes as Balance) * 100 * MICROUNIT) / 100
@@ -367,12 +371,12 @@ impl pallet_balances::Config for Runtime {
 }
 
 parameter_types! {
-	pub const AssetDeposit: Balance = 10 * UNIT;
-	pub const AssetAccountDeposit: Balance = deposit(1, 16);
-	pub const ApprovalDeposit: Balance = EXISTENTIAL_DEPOSIT;
+	pub const AssetDeposit: Balance = ZERO_DEPOSIT;
+	pub const AssetAccountDeposit: Balance = ZERO_DEPOSIT;
+	pub const ApprovalDeposit: Balance = ZERO_DEPOSIT;
 	pub const StringLimit: u32 = 50;
-	pub const MetadataDepositBase: Balance = deposit(1, 68);
-	pub const MetadataDepositPerByte: Balance = deposit(0, 1);
+	pub const MetadataDepositBase: Balance = ZERO_DEPOSIT;
+	pub const MetadataDepositPerByte: Balance = ZERO_DEPOSIT;
 }
 
 impl pallet_assets::Config for Runtime {
