@@ -47,7 +47,8 @@ frame-try-runtime = { version = "0.31.0", default-features = false }
 pallet-aura = { version = "24.0.0", default-features = false }
 pallet-authorship = { version = "25.0.0", default-features = false }
 pallet-assets = { version = "26.0.0", default-features = false }
-pallet-balances = { version = "25.0.0", default-features = false }
+# AUDIT: Allowing ED to be zero.
+pallet-balances = { version = "25.0.0", default-features = false, features = ["insecure_zero_ed"] }
 pallet-collective = { version = "25.0.0", default-features = false }
 pallet-membership = { version = "25.0.0", default-features = false }
 pallet-multisig = { version = "25.0.0", default-features = false }
