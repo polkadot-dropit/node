@@ -460,7 +460,6 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-
 fn start_consensus<RuntimeApi, Executor>(
 	client: Arc<ParachainClient<RuntimeApi, Executor>>,
 	backend: Arc<ParachainBackend>,
@@ -547,6 +546,94 @@ where
 			params,
 		);
 	task_manager.spawn_essential_handle().spawn("aura", None, fut);
+
+	Ok(())
+}
+
+/// Start relay-chain consensus that is free for all. Everyone can submit a block, the relay-chain
+/// decides what is backed and included.
+fn start_relay_chain_consensus<RuntimeApi, Executor>(
+	client: Arc<ParachainClient<RuntimeApi, Executor>>,
+	block_import: ParachainBlockImport<RuntimeApi, Executor>,
+	prometheus_registry: Option<&Registry>,
+	telemetry: Option<TelemetryHandle>,
+	task_manager: &TaskManager,
+	relay_chain_interface: Arc<dyn RelayChainInterface>,
+	transaction_pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi, Executor>>>,
+	_sync_oracle: Arc<SyncingService<Block>>,
+	_keystore: KeystorePtr,
+	_relay_chain_slot_duration: Duration,
+	para_id: ParaId,
+	collator_key: CollatorPair,
+	overseer_handle: OverseerHandle,
+	announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
+	_backend: Arc<ParachainBackend>,
+) -> Result<(), sc_service::Error>
+where
+	RuntimeApi:
+		ConstructRuntimeApi<Block, ParachainClient<RuntimeApi, Executor>> + Send + Sync + 'static,
+	RuntimeApi::RuntimeApi: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
+		+ sp_api::Metadata<Block>
+		+ sp_session::SessionKeys<Block>
+		+ sp_api::ApiExt<Block>
+		+ sp_offchain::OffchainWorkerApi<Block>
+		+ sp_block_builder::BlockBuilder<Block>
+		+ sp_consensus_aura::AuraApi<Block, <<AuraId as AppCrypto>::Pair as Pair>::Public>
+		+ cumulus_primitives_core::CollectCollationInfo<Block>
+		+ cumulus_primitives_aura::AuraUnincludedSegmentApi<Block>
+		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
+		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
+	Executor: NativeExecutionDispatch + 'static,
+{
+	let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
+		task_manager.spawn_handle(),
+		client.clone(),
+		transaction_pool,
+		prometheus_registry,
+		telemetry,
+	);
+
+	let free_for_all = cumulus_client_consensus_relay_chain::build_relay_chain_consensus(
+		cumulus_client_consensus_relay_chain::BuildRelayChainConsensusParams {
+			para_id,
+			proposer_factory,
+			block_import,
+			relay_chain_interface: relay_chain_interface.clone(),
+			create_inherent_data_providers: move |_, (relay_parent, validation_data)| {
+				let relay_chain_interface = relay_chain_interface.clone();
+				async move {
+					let parachain_inherent =
+							cumulus_client_parachain_inherent::ParachainInherentDataProvider::create_at(
+								relay_parent,
+								&relay_chain_interface,
+								&validation_data,
+								para_id,
+							).await;
+					let parachain_inherent = parachain_inherent.ok_or_else(|| {
+						Box::<dyn std::error::Error + Send + Sync>::from(
+							"Failed to create parachain inherent",
+						)
+					})?;
+					Ok(parachain_inherent)
+				}
+			},
+		},
+	);
+
+	let spawner = task_manager.spawn_handle();
+
+	// Required for free-for-all consensus
+	#[allow(deprecated)]
+	cumulus_client_service::old_consensus::start_collator_sync(cumulus_client_service::old_consensus::StartCollatorParams {
+		para_id,
+		block_status: client.clone(),
+		announce_block,
+		overseer_handle,
+		spawner,
+		key: collator_key,
+		parachain_consensus: free_for_all,
+		runtime_api: client.clone(),
+	});
 
 	Ok(())
 }
