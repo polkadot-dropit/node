@@ -423,15 +423,6 @@ parameter_types! {
 	pub const RelayOrigin: AggregateMessageOrigin = AggregateMessageOrigin::Parent;
 }
 
-/// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
-/// into the relay chain.
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 3;
-/// How many parachain blocks are processed by the relay chain per parent. Limits the
-/// number of blocks authored per slot.
-const BLOCK_PROCESSING_VELOCITY: u32 = 1;
-/// Relay chain slot duration, in milliseconds.
-const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
-
 impl cumulus_pallet_parachain_system::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnSystemEvent = ();
@@ -446,16 +437,9 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type WeightInfo = ();
 }
 
-type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
-	Runtime,
-	RELAY_CHAIN_SLOT_DURATION_MILLIS,
-	BLOCK_PROCESSING_VELOCITY,
-	UNINCLUDED_SEGMENT_CAPACITY,
->;
+type ConsensusHook = cumulus_pallet_parachain_system::consensus_hook::RequireParentIncluded;
 
 impl parachain_info::Config for Runtime {}
-
-impl cumulus_pallet_aura_ext::Config for Runtime {}
 
 impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -716,7 +700,6 @@ construct_runtime!(
 
 		// Collator support. The order of these 4 are important and shall not change.
 		Aura: pallet_aura = 23,
-		AuraExt: cumulus_pallet_aura_ext = 24,
 
 		// XCM helpers.
 		XcmpQueue: cumulus_pallet_xcmp_queue = 30,
@@ -751,15 +734,6 @@ impl_runtime_apis! {
 
 		fn authorities() -> Vec<AuraId> {
 			Aura::authorities().into_inner()
-		}
-	}
-
-	impl cumulus_primitives_aura::AuraUnincludedSegmentApi<Block> for Runtime {
-		fn can_build_upon(
-			included_hash: <Block as BlockT>::Hash,
-			slot: cumulus_primitives_aura::Slot,
-		) -> bool {
-			ConsensusHook::can_build_upon(included_hash, slot)
 		}
 	}
 
@@ -962,5 +936,5 @@ impl_runtime_apis! {
 
 cumulus_pallet_parachain_system::register_validate_block! {
 	Runtime = Runtime,
-	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
+	BlockExecutor = Executive,
 }
