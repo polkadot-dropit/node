@@ -1,5 +1,5 @@
 use cumulus_primitives_core::ParaId;
-use runtime_common::{AccountId, AuraId, Signature};
+use runtime_common::{AccountId, Signature};
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
 use serde::{Deserialize, Serialize};
@@ -45,30 +45,12 @@ impl Extensions {
 
 type AccountPublic = <Signature as Verify>::Signer;
 
-/// Generate collator keys from seed.
-///
-/// This function's return type must always match the session keys of the chain in tuple format.
-pub fn get_collator_keys_from_seed(seed: &str) -> AuraId {
-	get_from_seed::<AuraId>(seed)
-}
-
 /// Helper function to generate an account ID from seed
 pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
 where
 	AccountPublic: From<<TPublic::Pair as Pair>::Public>,
 {
 	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
-}
-
-/// Generate the session keys from individual elements.
-///
-/// The input must be a tuple of individual keys (a single arg for now since we have just one key).
-pub fn mainnet_session_keys(keys: AuraId) -> mainnet_runtime::SessionKeys {
-	mainnet_runtime::SessionKeys { aura: keys }
-}
-
-pub fn devnet_session_keys(keys: AuraId) -> devnet_runtime::SessionKeys {
-	devnet_runtime::SessionKeys { aura: keys }
 }
 
 pub mod devnet {
@@ -88,11 +70,6 @@ pub mod devnet {
 		.with_id("dev")
 		.with_chain_type(ChainType::Development)
 		.with_genesis_config_patch(testnet_genesis(
-			// initial collators.
-			vec![(
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_collator_keys_from_seed("Alice"),
-			)],
 			vec![
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				get_account_id_from_seed::<sr25519::Public>("Bob"),
@@ -128,17 +105,6 @@ pub mod devnet {
 		.with_id("devnet_local")
 		.with_chain_type(ChainType::Local)
 		.with_genesis_config_patch(testnet_genesis(
-			// initial collators.
-			vec![
-				(
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_collator_keys_from_seed("Alice"),
-				),
-				(
-					get_account_id_from_seed::<sr25519::Public>("Bob"),
-					get_collator_keys_from_seed("Bob"),
-				),
-			],
 			vec![
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				get_account_id_from_seed::<sr25519::Public>("Bob"),
@@ -160,7 +126,6 @@ pub mod devnet {
 	}
 
 	fn testnet_genesis(
-		invulnerables: Vec<(AccountId, AuraId)>,
 		endowed_accounts: Vec<AccountId>,
 		root: Option<AccountId>,
 		id: ParaId,
@@ -171,22 +136,6 @@ pub mod devnet {
 			},
 			"parachainInfo": {
 				"parachainId": id,
-			},
-			"collatorSelection": {
-				"invulnerables": invulnerables.iter().cloned().map(|(acc, _)| acc).collect::<Vec<_>>(),
-				"candidacyBond": devnet_runtime::EXISTENTIAL_DEPOSIT * 16,
-			},
-			"session": {
-				"keys": invulnerables
-					.into_iter()
-					.map(|(acc, aura)| {
-						(
-							acc.clone(),                 // account id
-							acc,                         // validator id
-							devnet_session_keys(aura), // session keys
-						)
-					})
-				.collect::<Vec<_>>(),
 			},
 			"polkadotXcm": {
 				"safeXcmVersion": Some(SAFE_XCM_VERSION),
@@ -213,17 +162,6 @@ pub mod mainnet {
 		.with_id("mainnet_dev")
 		.with_chain_type(ChainType::Development)
 		.with_genesis_config_patch(mainnet_genesis(
-			// initial collators.
-			vec![
-				(
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_collator_keys_from_seed("Alice"),
-				),
-				(
-					get_account_id_from_seed::<sr25519::Public>("Bob"),
-					get_collator_keys_from_seed("Bob"),
-				),
-			],
 			vec![
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				get_account_id_from_seed::<sr25519::Public>("Bob"),
@@ -259,17 +197,6 @@ pub mod mainnet {
 		.with_id("mainnet_local")
 		.with_chain_type(ChainType::Local)
 		.with_genesis_config_patch(mainnet_genesis(
-			// initial collators.
-			vec![
-				(
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_collator_keys_from_seed("Alice"),
-				),
-				(
-					get_account_id_from_seed::<sr25519::Public>("Bob"),
-					get_collator_keys_from_seed("Bob"),
-				),
-			],
 			vec![
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				get_account_id_from_seed::<sr25519::Public>("Bob"),
@@ -291,7 +218,6 @@ pub mod mainnet {
 	}
 
 	fn mainnet_genesis(
-		invulnerables: Vec<(AccountId, AuraId)>,
 		endowed_accounts: Vec<AccountId>,
 		root: Option<AccountId>,
 		id: ParaId,
@@ -302,22 +228,6 @@ pub mod mainnet {
 			},
 			"parachainInfo": {
 				"parachainId": id,
-			},
-			"collatorSelection": {
-				"invulnerables": invulnerables.iter().cloned().map(|(acc, _)| acc).collect::<Vec<_>>(),
-				"candidacyBond": mainnet_runtime::EXISTENTIAL_DEPOSIT * 16,
-			},
-			"session": {
-				"keys": invulnerables
-					.into_iter()
-					.map(|(acc, aura)| {
-						(
-							acc.clone(),                 // account id
-							acc,                         // validator id
-							mainnet_session_keys(aura), // session keys
-						)
-					})
-				.collect::<Vec<_>>(),
 			},
 			"polkadotXcm": {
 				"safeXcmVersion": Some(SAFE_XCM_VERSION),
