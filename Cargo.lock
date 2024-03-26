@@ -2063,9 +2063,9 @@ dependencies = [
 
 [[package]]
 name = "cumulus-pallet-parachain-system"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1eef33ef1ff3b1f3c4b078d6ee92d7473457c169606583f503d5ba89092a933f"
+checksum = "d20d2280051998fcf113f04d25d4b39f27b449570b6350fdfb7e92541cb0aae7"
 dependencies = [
  "bytes",
  "cumulus-pallet-parachain-system-proc-macro",
@@ -2235,9 +2235,9 @@ dependencies = [
 
 [[package]]
 name = "cumulus-primitives-utility"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b4ef704f5a346711d0448f82e57dc5784b186f4bf5e3efbbca0df814b203539"
+checksum = "2d0ad7498cb748684f0f309ee037e9a29a91fb3ec5b5276b5fc723c3716bdd8a"
 dependencies = [
  "cumulus-primitives-core",
  "frame-support",
@@ -12727,9 +12727,9 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-builder"
-version = "4.0.0"
+version = "4.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa3b14246daaf0301dd35d698bac570d82ba0c6c6c1d3e149b93bcf377b2fc6b"
+checksum = "8628fd8878df3978a34da0ef75722b118f4bc40bb47fb3c687cc0899f7ede43c"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -12750,9 +12750,9 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-executor"
-version = "4.0.0"
+version = "4.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3a85a421053f810f3ed988ba3cc39d926c95f70f1ae73282aa8cd5c50072173b"
+checksum = "49bc3b2b8429aacca1897c72b786e7c21d36170a919e9333fe533868d32d2774"
 dependencies = [
  "environmental",
  "frame-benchmarking",

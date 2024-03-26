@@ -110,7 +110,7 @@ cumulus-client-service = { version = "0.4.0" }
 cumulus-client-consensus-proposer = { version = "0.4.0" }
 cumulus-pallet-aura-ext = { version = "0.4.0", default-features = false }
 cumulus-pallet-dmp-queue = { version = "0.4.0", default-features = false }
-cumulus-pallet-parachain-system = { version = "0.4.0", default-features = false }
+cumulus-pallet-parachain-system = { version = "0.4.1", default-features = false }
 cumulus-pallet-session-benchmarking = { version = "6.0.0", default-features = false }
 cumulus-pallet-xcm = { version = "0.4.0", default-features = false }
 cumulus-pallet-xcmp-queue = { version = "0.4.0", default-features = false }
@@ -118,13 +118,13 @@ cumulus-primitives-aura = { version = "0.4.0", default-features = false }
 cumulus-primitives-core = { version = "0.4.0", default-features = false }
 cumulus-primitives-parachain-inherent = { version = "0.4.0" }
 cumulus-primitives-timestamp = { version = "0.4.0", default-features = false }
-cumulus-primitives-utility = { version = "0.4.0", default-features = false }
+cumulus-primitives-utility = { version = "0.4.1", default-features = false }
 cumulus-relay-chain-inprocess-interface = { version = "0.4.0" }
 cumulus-relay-chain-interface = { version = "0.4.0" }
 cumulus-relay-chain-minimal-node = { version = "0.4.0" }
 cumulus-relay-chain-rpc-interface = { version = "0.4.0" }
 pallet-collator-selection = { version = "6.0.0", default-features = false }
-parachain-info = { package = "staging-parachain-info", version = "0.4.0", default-features = false }
+parachain-info = { version = "0.4.0", package = "staging-parachain-info", default-features = false }
 parachains-common = { version = "4.0.0", default-features = false }
 
 # Polkadot
@@ -136,6 +136,6 @@ polkadot-parachain-primitives = { version = "3.0.0", default-features = false }
 polkadot-primitives = { version = "4.0.0", default-features = false }
 polkadot-runtime-common = { version = "4.0.0", default-features = false }
 polkadot-service = { version = "4.0.0" }
-xcm = { package = "staging-xcm", version = "4.0.0", default-features = false }
-xcm-builder = { package = "staging-xcm-builder", version = "4.0.0", default-features = false }
-xcm-executor = { package = "staging-xcm-executor", version = "4.0.0", default-features = false }
+xcm = { version = "4.0.0", package = "staging-xcm", default-features = false }
+xcm-builder = { version = "4.0.1", package = "staging-xcm-builder", default-features = false }
+xcm-executor = { version = "4.0.2", package = "staging-xcm-executor", default-features = false }
