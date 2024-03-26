@@ -53,11 +53,22 @@ zombienet_spawn() {
   ./$ZOMBIENET_BIN spawn zombienet-config/rococo-local-config.toml -p native
 }
 
+zombienet_test() {
+  zombienet_init
+  if [ ! -f target/release/parachain-template-node ]; then
+    echo "building parachain-template-node..."
+    cargo build --release
+  fi
+  echo "running smoke test..."
+  ./$ZOMBIENET_BIN test zombienet-config/tests/0001-parachains-smoke-test.zndsl -p native
+}
+
 print_help() {
   echo "This is a shell script to automate the execution of zombienet."
   echo ""
   echo "$ ./zombienet.sh init         # fetches zombienet and polkadot executables"
   echo "$ ./zombienet.sh spawn        # spawns a rococo-local relay chain plus parachain-template-node"
+  echo "$ ./zombienet.sh test         # test registration and block production of parachain"
 }
 
 SUBCOMMAND=$1
