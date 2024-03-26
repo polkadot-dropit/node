@@ -25,8 +25,10 @@ pub enum Subcommand {
 	/// Remove the whole chain.
 	PurgeChain(cumulus_client_cli::PurgeChainCmd),
 
-	/// Export the genesis state of the parachain.
-	ExportGenesisState(cumulus_client_cli::ExportGenesisStateCommand),
+	/// Export the genesis head data of the parachain.
+	///
+	/// Head data is the encoded block header.
+	ExportGenesisHead(cumulus_client_cli::ExportGenesisHeadCommand),
 
 	/// Export the genesis wasm of the parachain.
 	ExportGenesisWasm(cumulus_client_cli::ExportGenesisWasmCommand),
@@ -35,12 +37,6 @@ pub enum Subcommand {
 	/// The pallet benchmarking moved to the `pallet` sub-command.
 	#[command(subcommand)]
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
-
-	/// Try some testing command against a specified runtime state.
-	/// Try-runtime has migrated to a standalone [CLI](<https://github.com/paritytech/try-runtime-cli>).
-	/// The subcommand exists as a stub and deprecation notice.
-	/// It will be removed entirely some time after Janurary 2024.
-	TryRuntime,
 }
 
 const AFTER_HELP_EXAMPLE: &str = color_print::cstr!(

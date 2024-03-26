@@ -1,23 +1,22 @@
 use std::{net::SocketAddr, path::PathBuf};
 
-use cumulus_client_cli::generate_genesis_block;
 use cumulus_primitives_core::ParaId;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 use log::info;
-use parity_scale_codec::Encode;
+
 use runtime_common::Block;
 use sc_cli::{
 	ChainSpec, CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams,
 	NetworkParams, Result, SharedParams, SubstrateCli,
 };
 use sc_service::config::{BasePath, PrometheusConfig};
-use sp_core::hexdisplay::HexDisplay;
-use sp_runtime::traits::{AccountIdConversion, Block as BlockT};
+
+use sp_runtime::traits::AccountIdConversion;
 
 use crate::{
 	chain_spec,
 	cli::{Cli, RelayChainCli, Subcommand},
-	service::{new_partial, DevnetRuntimeExecutor, MainnetRuntimeExecutor},
+	service::new_partial,
 };
 
 /// Helper enum that is used for better distinction of different parachain/runtime configuration
@@ -159,50 +158,15 @@ impl SubstrateCli for RelayChainCli {
 	}
 }
 
-macro_rules! construct_async_run {
-	(|$components:ident, $cli:ident, $cmd:ident, $config:ident| $( $code:tt )* ) => {{
-		let runner = $cli.create_runner($cmd)?;
-		match runner.config().chain_spec.runtime() {
-			Runtime::Devnet | Runtime::Default => {
-				runner.async_run(|$config| {
-					let $components = new_partial::<devnet_runtime::RuntimeApi, DevnetRuntimeExecutor, _>(
-						&$config,
-						crate::service::build_import_queue::<devnet_runtime::RuntimeApi, DevnetRuntimeExecutor>,
-					)?;
-					let task_manager = $components.task_manager;
-					{ $( $code )* }.map(|v| (v, task_manager))
-				})
-			}
-			Runtime::Mainnet => {
-				runner.async_run(|$config| {
-					let $components = new_partial::<mainnet_runtime::RuntimeApi, MainnetRuntimeExecutor, _>(
-						&$config,
-						crate::service::build_import_queue::<mainnet_runtime::RuntimeApi, MainnetRuntimeExecutor>,
-					)?;
-					let task_manager = $components.task_manager;
-					{ $( $code )* }.map(|v| (v, task_manager))
-				})
-			}
-		}
-	}}
-}
-
 macro_rules! construct_benchmark_partials {
 	($config:expr, |$partials:ident| $code:expr) => {
 		match $config.chain_spec.runtime() {
 			Runtime::Devnet | Runtime::Default => {
-				let $partials = new_partial::<devnet_runtime::RuntimeApi, DevnetRuntimeExecutor, _>(
-					&$config,
-					crate::service::build_import_queue::<_, DevnetRuntimeExecutor>,
-				)?;
+				let $partials = new_partial(&$config)?;
 				$code
 			},
 			Runtime::Mainnet => {
-				let $partials =
-					new_partial::<mainnet_runtime::RuntimeApi, MainnetRuntimeExecutor, _>(
-						&$config,
-						crate::service::build_import_queue::<_, MainnetRuntimeExecutor>,
-					)?;
+				let $partials = new_partial(&$config)?;
 				$code
 			},
 		}
@@ -219,28 +183,48 @@ pub fn run() -> Result<()> {
 			runner.sync_run(|config| cmd.run(config.chain_spec, config.network))
 		},
 		Some(Subcommand::CheckBlock(cmd)) => {
-			construct_async_run!(|components, cli, cmd, config| {
-				Ok(cmd.run(components.client, components.import_queue))
+			let runner = cli.create_runner(cmd)?;
+
+			runner.async_run(|config| {
+				let components = new_partial(&config)?;
+				let task_manager = components.task_manager;
+				Ok((cmd.run(components.client, components.import_queue), task_manager))
 			})
 		},
 		Some(Subcommand::ExportBlocks(cmd)) => {
-			construct_async_run!(|components, cli, cmd, config| {
-				Ok(cmd.run(components.client, config.database))
+			let runner = cli.create_runner(cmd)?;
+
+			runner.async_run(|config| {
+				let components = new_partial(&config)?;
+				let task_manager = components.task_manager;
+				Ok((cmd.run(components.client, config.database), task_manager))
 			})
 		},
 		Some(Subcommand::ExportState(cmd)) => {
-			construct_async_run!(|components, cli, cmd, config| {
-				Ok(cmd.run(components.client, config.chain_spec))
+			let runner = cli.create_runner(cmd)?;
+
+			runner.async_run(|config| {
+				let components = new_partial(&config)?;
+				let task_manager = components.task_manager;
+				Ok((cmd.run(components.client, config.chain_spec), task_manager))
 			})
 		},
 		Some(Subcommand::ImportBlocks(cmd)) => {
-			construct_async_run!(|components, cli, cmd, config| {
-				Ok(cmd.run(components.client, components.import_queue))
+			let runner = cli.create_runner(cmd)?;
+
+			runner.async_run(|config| {
+				let components = new_partial(&config)?;
+				let task_manager = components.task_manager;
+				Ok((cmd.run(components.client, components.import_queue), task_manager))
 			})
 		},
 		Some(Subcommand::Revert(cmd)) => {
-			construct_async_run!(|components, cli, cmd, config| {
-				Ok(cmd.run(components.client, components.backend, None))
+			let runner = cli.create_runner(cmd)?;
+
+			runner.async_run(|config| {
+				let components = new_partial(&config)?;
+				let task_manager = components.task_manager;
+				Ok((cmd.run(components.client, components.backend, None), task_manager))
 			})
 		},
 		Some(Subcommand::PurgeChain(cmd)) => {
@@ -262,14 +246,12 @@ pub fn run() -> Result<()> {
 				cmd.run(config, polkadot_config)
 			})
 		},
-		Some(Subcommand::ExportGenesisState(cmd)) => {
+		Some(Subcommand::ExportGenesisHead(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|config| {
-				construct_benchmark_partials!(config, |partials| {
-					let spec =
-						cli.load_spec(&cmd.shared_params.chain.clone().unwrap_or_default())?;
-					cmd.run::<Block>(&*spec, &*partials.client)
-				})
+				let partials = new_partial(&config)?;
+
+				cmd.run(partials.client)
 			})
 		},
 		Some(Subcommand::ExportGenesisWasm(cmd)) => {
@@ -285,7 +267,9 @@ pub fn run() -> Result<()> {
 			match cmd {
 				BenchmarkCmd::Pallet(cmd) => {
 					if cfg!(feature = "runtime-benchmarks") {
-						runner.sync_run(|config| cmd.run::<Block, ()>(config))
+						runner.sync_run(|config| {
+							cmd.run::<sp_runtime::traits::HashingFor<Block>, ()>(config)
+						})
 					} else {
 						Err("Benchmarking wasn't enabled when building the node. \
 					You can enable it with `--features runtime-benchmarks`."
@@ -320,7 +304,6 @@ pub fn run() -> Result<()> {
 				_ => Err("Benchmarking sub-command unsupported".into()),
 			}
 		},
-		Some(Subcommand::TryRuntime) => Err("The `try-runtime` subcommand has been migrated to a standalone CLI (https://github.com/paritytech/try-runtime-cli). It is no longer being maintained here and will be removed entirely some time after January 2024. Please remove this subcommand from your runtime and use the standalone CLI.".into()),
 		None => {
 			let runner = cli.create_runner(&cli.run.normalize())?;
 			let collator_options = cli.run.collator_options();
@@ -349,11 +332,6 @@ pub fn run() -> Result<()> {
 						&id,
 					);
 
-				let block: Block =
-					generate_genesis_block(&*config.chain_spec, sp_runtime::StateVersion::V1)
-						.map_err(|e| format!("{:?}", e))?;
-				let genesis_state = format!("0x{:?}", HexDisplay::from(&block.header().encode()));
-
 				let tokio_handle = config.tokio_handle.clone();
 				let polkadot_config =
 					SubstrateCli::create_configuration(&polkadot_cli, &polkadot_cli, tokio_handle)
@@ -361,7 +339,6 @@ pub fn run() -> Result<()> {
 
 				info!("Parachain id: {:?}", id);
 				info!("Parachain Account: {}", parachain_account);
-				info!("Parachain genesis state: {}", genesis_state);
 				info!("Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
 
 				match config.chain_spec.runtime() {
@@ -373,10 +350,13 @@ pub fn run() -> Result<()> {
 						sp_core::crypto::set_default_ss58_version(
 							devnet_runtime::SS58Prefix::get().into(),
 						);
-						crate::service::start_parachain_node::<
-							devnet_runtime::RuntimeApi,
-							DevnetRuntimeExecutor,
-						>(config, polkadot_config, collator_options, id, hwbench)
+						crate::service::start_parachain_node(
+							config,
+							polkadot_config,
+							collator_options,
+							id,
+							hwbench,
+						)
 						.await
 						.map(|r| r.0)
 						.map_err(Into::into)
@@ -385,10 +365,13 @@ pub fn run() -> Result<()> {
 						sp_core::crypto::set_default_ss58_version(
 							mainnet_runtime::SS58Prefix::get().into(),
 						);
-						crate::service::start_parachain_node::<
-							mainnet_runtime::RuntimeApi,
-							MainnetRuntimeExecutor,
-						>(config, polkadot_config, collator_options, id, hwbench)
+						crate::service::start_parachain_node(
+							config,
+							polkadot_config,
+							collator_options,
+							id,
+							hwbench,
+						)
 						.await
 						.map(|r| r.0)
 						.map_err(Into::into)
