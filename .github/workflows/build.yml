@@ -26,7 +26,7 @@ jobs:
           toolchain: stable
           target: wasm32-unknown-unknown
           override: true
-          components: rustfmt, clippy
+          components: rustfmt, clippy, rust-src
 
       - name: Install protoc
         run: |
@@ -41,13 +41,13 @@ jobs:
           toolchain: stable
           command: fmt
           args: --all --check
-      
+
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.5.0
         with:
             cache-on-failure: true
             cache-all-crates: true
-  
+
       - name: Check Build
         run: |
           cargo check --release
@@ -57,7 +57,7 @@ jobs:
 
       - name: Check try-runtime build
         run: cargo check --release --features=try-runtime
-      
+
       - name: Ensure benchmarking compiles
         run: >
           pushd node &&
