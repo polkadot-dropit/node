@@ -256,10 +256,7 @@ pub fn run() -> Result<()> {
 		},
 		Some(Subcommand::ExportGenesisWasm(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
-			runner.sync_run(|_config| {
-				let spec = cli.load_spec(&cmd.shared_params.chain.clone().unwrap_or_default())?;
-				cmd.run(&*spec)
-			})
+			runner.sync_run(|config| cmd.run(&*config.chain_spec))
 		},
 		Some(Subcommand::Benchmark(cmd)) => {
 			let runner = cli.create_runner(cmd)?;

@@ -115,14 +115,15 @@ pub fn new_partial(
 		client.clone(),
 	);
 
-	let block_import = ParachainBlockImport::new(client.clone(), backend.clone());
+	let block_import =
+		ParachainBlockImport::new_with_delayed_best_block(client.clone(), backend.clone());
 
-	let import_queue = build_import_queue(
+	let import_queue = cumulus_client_consensus_relay_chain::import_queue(
 		client.clone(),
 		block_import.clone(),
-		config,
-		telemetry.as_ref().map(|telemetry| telemetry.handle()),
-		&task_manager,
+		|_, _| async { Ok(sp_timestamp::InherentDataProvider::from_system_time()) },
+		&task_manager.spawn_essential_handle(),
+		config.prometheus_registry(),
 	)?;
 
 	Ok(PartialComponents {
@@ -135,37 +136,6 @@ pub fn new_partial(
 		select_chain: (),
 		other: (block_import, telemetry, telemetry_worker_handle),
 	})
-}
-
-/// Build the import queue for the parachain runtime.
-#[allow(clippy::type_complexity)]
-pub(crate) fn build_import_queue(
-	client: Arc<ParachainClient>,
-	block_import: ParachainBlockImport,
-	config: &Configuration,
-	telemetry: Option<TelemetryHandle>,
-	task_manager: &TaskManager,
-) -> Result<sc_consensus::DefaultImportQueue<Block>, sc_service::Error> {
-	let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
-
-	Ok(cumulus_client_consensus_aura::equivocation_import_queue::fully_verifying_import_queue::<
-		sp_consensus_aura::sr25519::AuthorityPair,
-		_,
-		_,
-		_,
-		_,
-	>(
-		client,
-		block_import,
-		move |_, _| async move {
-			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-			Ok(timestamp)
-		},
-		slot_duration,
-		&task_manager.spawn_essential_handle(),
-		config.prometheus_registry(),
-		telemetry,
-	))
 }
 
 /// Start relay-chain consensus that is free for all. Everyone can submit a block, the relay-chain
@@ -212,7 +182,10 @@ fn start_relay_chain_consensus(
 							"Failed to create parachain inherent",
 						)
 					})?;
-					Ok(parachain_inherent)
+
+					let time = sp_timestamp::InherentDataProvider::from_system_time();
+
+					Ok((time, parachain_inherent))
 				}
 			},
 		},
@@ -285,7 +258,7 @@ pub async fn start_parachain_node(
 			spawn_handle: task_manager.spawn_handle(),
 			relay_chain_interface: relay_chain_interface.clone(),
 			import_queue: params.import_queue,
-			sybil_resistance_level: CollatorSybilResistance::Resistant, // because of Aura
+			sybil_resistance_level: CollatorSybilResistance::Unresistant,
 		})
 		.await?;
 
