@@ -45,14 +45,12 @@ frame-system-benchmarking = { version = "31.0.0", default-features = false }
 frame-system-rpc-runtime-api = { version = "29.0.0", default-features = false }
 frame-try-runtime = { version = "0.37.0", default-features = false }
 pallet-aura = { version = "30.0.0", default-features = false }
-pallet-authorship = { version = "31.0.0", default-features = false }
 pallet-assets = { version = "32.0.0", default-features = false }
 pallet-balances = { version = "31.0.0", default-features = false }
 pallet-collective = { version = "31.0.0", default-features = false }
 pallet-membership = { version = "31.0.0", default-features = false }
 pallet-multisig = { version = "31.0.0", default-features = false }
 pallet-preimage = { version = "31.0.0", default-features = false }
-pallet-session = { version = "31.0.0", default-features = false }
 pallet-scheduler = { version = "32.0.0", default-features = false }
 pallet-sudo = { version = "31.0.0", default-features = false }
 pallet-timestamp = { version = "30.0.0", default-features = false }
@@ -112,7 +110,6 @@ cumulus-client-service = { version = "0.10.0" }
 cumulus-client-consensus-proposer = { version = "0.10.0" }
 cumulus-pallet-aura-ext = { version = "0.10.0", default-features = false }
 cumulus-pallet-parachain-system = { version = "0.10.0", default-features = false }
-cumulus-pallet-session-benchmarking = { version = "12.0.0", default-features = false }
 cumulus-pallet-xcm = { version = "0.10.0", default-features = false }
 cumulus-pallet-xcmp-queue = { version = "0.10.0", default-features = false }
 cumulus-primitives-aura = { version = "0.10.0", default-features = false }
@@ -124,7 +121,6 @@ cumulus-relay-chain-inprocess-interface = { version = "0.10.0" }
 cumulus-relay-chain-interface = { version = "0.10.0" }
 cumulus-relay-chain-minimal-node = { version = "0.10.0" }
 cumulus-relay-chain-rpc-interface = { version = "0.10.0" }
-pallet-collator-selection = { version = "12.0.0", default-features = false }
 pallet-message-queue = { version = "34.0.0", default-features = false }
 parachain-info = { version = "0.10.0", package = "staging-parachain-info", default-features = false }
 parachains-common = { version = "10.0.0", default-features = false }
