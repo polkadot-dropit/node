@@ -48,7 +48,6 @@ sc-transaction-pool-api = { workspace = true }
 sp-api = { workspace = true }
 sp-block-builder = { workspace = true }
 sp-blockchain = { workspace = true }
-sp-consensus-aura = { workspace = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-keystore = { workspace = true }
@@ -69,13 +68,11 @@ xcm = { workspace = true, default-features = false }
 
 # Cumulus
 cumulus-client-cli = { workspace = true }
-cumulus-client-consensus-aura = { workspace = true }
 cumulus-client-consensus-common = { workspace = true }
 cumulus-client-consensus-relay-chain = { workspace = true }
 cumulus-client-collator = { workspace = true }
 cumulus-client-parachain-inherent = { workspace = true }
 cumulus-client-service = { workspace = true }
-cumulus-primitives-aura = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 cumulus-primitives-parachain-inherent = { workspace = true }
 cumulus-client-consensus-proposer = { workspace = true }
