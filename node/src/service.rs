@@ -152,7 +152,7 @@ fn start_relay_chain_consensus(
 	collator_key: CollatorPair,
 	overseer_handle: OverseerHandle,
 	announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
-) -> Result<(), sc_service::Error> {
+) {
 	let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 		task_manager.spawn_handle(),
 		client.clone(),
@@ -207,8 +207,6 @@ fn start_relay_chain_consensus(
 			runtime_api: client.clone(),
 		},
 	);
-
-	Ok(())
 }
 
 /// Start a node with the given parachain `Configuration` and relay chain `Configuration`.
@@ -377,7 +375,7 @@ pub async fn start_parachain_node(
 			collator_key.expect("Command line arguments do not allow this. qed"),
 			overseer_handle,
 			announce_block,
-		)?;
+		);
 	}
 
 	start_network.start_network();
