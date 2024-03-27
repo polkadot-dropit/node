@@ -11,31 +11,15 @@ pub mod xcm_config;
 pub use fee::WeightToFee;
 
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
-use cumulus_primitives_core::{AssetId, Concrete};
-use pallet_tx_pause::RuntimeCallNameOf;
-use sp_api::impl_runtime_apis;
-use sp_core::{crypto::KeyTypeId, ConstBool, OpaqueMetadata};
-use sp_runtime::{
-	create_runtime_str, generic, impl_opaque_keys,
-	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT},
-	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult,
-};
-
-use sp_std::prelude::*;
-#[cfg(feature = "std")]
-use sp_version::NativeVersion;
-use sp_version::RuntimeVersion;
-
+use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 use frame_support::traits::fungible::HoldConsideration;
-use frame_support::traits::LinearStoragePrice;
+use frame_support::traits::{Contains, LinearStoragePrice};
 use frame_support::{
 	construct_runtime,
 	dispatch::DispatchClass,
+	genesis_builder_helper::{build_config, create_default_config},
 	parameter_types,
-	traits::{
-		AsEnsureOriginWithArg, ConstU32, ConstU64, ConstU8, Contains, EitherOfDiverse, Everything,
-	},
+	traits::{AsEnsureOriginWithArg, ConstU32, ConstU64, ConstU8, Everything, TransformOrigin},
 	weights::{ConstantMultiplier, Weight},
 	PalletId,
 };
@@ -43,29 +27,41 @@ use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot, EnsureRootWithSuccess, EnsureSigned,
 };
-use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
+use pallet_tx_pause::RuntimeCallNameOf;
+use parachains_common::message_queue::{NarrowOriginToSibling, ParaIdToSibling};
+use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
+use sp_api::impl_runtime_apis;
+use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
+use sp_runtime::{
+	create_runtime_str, generic, impl_opaque_keys,
+	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT},
+	transaction_validity::{TransactionSource, TransactionValidity},
+	ApplyExtrinsicResult,
+};
+use sp_std::prelude::*;
+#[cfg(feature = "std")]
+use sp_version::NativeVersion;
+use sp_version::RuntimeVersion;
+use xcm_config::XcmOriginToTransactDispatchOrigin;
+
 pub use runtime_common::{
 	AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS, MAXIMUM_BLOCK_WEIGHT, MILLISECS_PER_BLOCK, MINUTES,
 	NORMAL_DISPATCH_RATIO, SLOT_DURATION,
 };
-pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-pub use sp_runtime::{MultiAddress, Perbill, Permill};
-use xcm_config::{RelayLocation, XcmConfig, XcmOriginToTransactDispatchOrigin};
-
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
+pub use sp_runtime::{MultiAddress, Perbill, Permill};
 
 // Polkadot imports
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 
-pub use runtime_common::{AccountId, Balance, BlockNumber, DealWithFees, Hash, Signature};
+pub use runtime_common::{AccountId, Balance, BlockNumber, Hash, Signature};
 
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
 // XCM Imports
 use runtime_common::Nonce;
 use xcm::latest::prelude::BodyId;
-use xcm_executor::XcmExecutor;
 
 /// The address format for describing accounts.
 pub type Address = MultiAddress<AccountId, ()>;
@@ -207,15 +203,13 @@ pub mod opaque {
 }
 
 impl_opaque_keys! {
-	pub struct SessionKeys {
-		pub aura: Aura,
-	}
+	pub struct SessionKeys { }
 }
 
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("devnet"),
-	impl_name: create_runtime_str!("devnet"),
+	spec_name: create_runtime_str!("mainnet"),
+	impl_name: create_runtime_str!("mainnet"),
 	authoring_version: 1,
 	spec_version: 1000,
 	impl_version: 0,
@@ -319,28 +313,24 @@ impl frame_system::Config for Runtime {
 	type SS58Prefix = SS58Prefix;
 	/// The action to take on a Runtime Upgrade
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
-	/// The maximum number of consumers allowed on a single account.
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type RuntimeTask = RuntimeTask;
+	type SingleBlockMigrations = ();
+	type MultiBlockMigrator = ();
+	type PostInherents = ();
+	type PreInherents = ();
+	type PostTransactions = ();
 }
 
 impl pallet_timestamp::Config for Runtime {
 	/// A timestamp: milliseconds since the unix epoch.
 	type Moment = u64;
-	type OnTimestampSet = Aura;
+	type OnTimestampSet = ();
 	#[cfg(feature = "experimental")]
 	type MinimumPeriod = ConstU64<0>;
 	#[cfg(not(feature = "experimental"))]
 	type MinimumPeriod = ConstU64<{ SLOT_DURATION / 2 }>;
 	type WeightInfo = ();
-}
-
-parameter_types! {
-	pub const UncleGenerations: u32 = 0;
-}
-
-impl pallet_authorship::Config for Runtime {
-	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Aura>;
-	type EventHandler = (CollatorSelection,);
 }
 
 parameter_types! {
@@ -361,7 +351,6 @@ impl pallet_balances::Config for Runtime {
 	type FreezeIdentifier = ();
 	type MaxLocks = ConstU32<50>;
 	type MaxReserves = ConstU32<50>;
-	type MaxHolds = ConstU32<2>;
 	type MaxFreezes = ConstU32<0>;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
@@ -405,8 +394,8 @@ parameter_types! {
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type OnChargeTransaction =
-		pallet_transaction_payment::CurrencyAdapter<Balances, DealWithFees<Runtime>>;
+	// TODO: DealWithFees
+	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<Balances, ()>;
 	type OperationalFeeMultiplier = ConstU8<5>;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
@@ -424,72 +413,70 @@ impl pallet_utility::Config for Runtime {
 parameter_types! {
 	pub const ReservedXcmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
 	pub const ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
+	pub const RelayOrigin: AggregateMessageOrigin = AggregateMessageOrigin::Parent;
 }
-
-/// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
-/// into the relay chain.
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 3;
-/// How many parachain blocks are processed by the relay chain per parent. Limits the
-/// number of blocks authored per slot.
-const BLOCK_PROCESSING_VELOCITY: u32 = 1;
-/// Relay chain slot duration, in milliseconds.
-const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 
 impl cumulus_pallet_parachain_system::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnSystemEvent = ();
 	type SelfParaId = parachain_info::Pallet<Runtime>;
 	type OutboundXcmpMessageSource = XcmpQueue;
-	type DmpMessageHandler = DmpQueue;
+	type DmpQueue = frame_support::traits::EnqueueWithOrigin<MessageQueue, RelayOrigin>;
 	type ReservedDmpWeight = ReservedDmpWeight;
 	type XcmpMessageHandler = XcmpQueue;
 	type ReservedXcmpWeight = ReservedXcmpWeight;
 	type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
-}
-
-type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
-	Runtime,
-	RELAY_CHAIN_SLOT_DURATION_MILLIS,
-	BLOCK_PROCESSING_VELOCITY,
-	UNINCLUDED_SEGMENT_CAPACITY,
->;
-impl parachain_info::Config for Runtime {}
-
-impl cumulus_pallet_aura_ext::Config for Runtime {}
-
-parameter_types! {
-	/// The asset ID for the asset that we use to pay for message delivery fees.
-	pub FeeAssetId: AssetId = Concrete(xcm_config::RelayLocation::get());
-	/// The base fee for the message delivery fees.
-	pub const BaseDeliveryFee: Balance = 300_000_000;
-	/// The fee per byte
-	pub const ByteFee: Balance = 1_000_000;
-}
-
-pub type PriceForSiblingParachainDelivery = polkadot_runtime_common::xcm_sender::ExponentialPrice<
-	FeeAssetId,
-	BaseDeliveryFee,
-	ByteFee,
-	XcmpQueue,
->;
-
-impl cumulus_pallet_xcmp_queue::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type XcmExecutor = XcmExecutor<XcmConfig>;
-	type ChannelInfo = ParachainSystem;
-	type VersionWrapper = ();
-	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
-	type ControllerOrigin = EnsureRoot<AccountId>;
-	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
-	type PriceForSiblingDelivery = PriceForSiblingParachainDelivery;
 	type WeightInfo = ();
 }
 
-impl cumulus_pallet_dmp_queue::Config for Runtime {
+type ConsensusHook =
+	cumulus_pallet_parachain_system::consensus_hook::FixedCapacityUnincludedSegment<2>;
+
+impl parachain_info::Config for Runtime {}
+
+impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type XcmExecutor = XcmExecutor<XcmConfig>;
-	type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
+	type ChannelInfo = ParachainSystem;
+	type VersionWrapper = ();
+	// Enqueue XCMP messages from siblings for later processing.
+	type XcmpQueue = TransformOrigin<MessageQueue, AggregateMessageOrigin, ParaId, ParaIdToSibling>;
+	type MaxInboundSuspended = sp_core::ConstU32<1_000>;
+	type ControllerOrigin = EnsureRoot<AccountId>;
+	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
+	type WeightInfo = ();
+	type PriceForSiblingDelivery = NoPriceForMessageDelivery<ParaId>;
+}
+
+parameter_types! {
+	pub MessageQueueServiceWeight: Weight = Perbill::from_percent(35) * RuntimeBlockWeights::get().max_block;
+}
+
+impl pallet_message_queue::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type MessageProcessor = pallet_message_queue::mock_helpers::NoopMessageProcessor<
+		cumulus_primitives_core::AggregateMessageOrigin,
+	>;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type MessageProcessor = xcm_builder::ProcessXcmMessage<
+		AggregateMessageOrigin,
+		xcm_executor::XcmExecutor<xcm_config::XcmConfig>,
+		RuntimeCall,
+	>;
+	type Size = u32;
+	// The XCMP queue pallet is only ever able to handle the `Sibling(ParaId)` origin:
+	type QueueChangeHandler = NarrowOriginToSibling<XcmpQueue>;
+	type QueuePausedQuery = NarrowOriginToSibling<XcmpQueue>;
+	type HeapSize = sp_core::ConstU32<{ 64 * 1024 }>;
+	type MaxStale = sp_core::ConstU32<8>;
+	type ServiceWeight = MessageQueueServiceWeight;
+}
+
+parameter_types! {
+	pub const Period: u32 = 6 * HOURS;
+	pub const Offset: u32 = 0;
 }
 
 parameter_types! {
@@ -509,25 +496,6 @@ impl pallet_scheduler::Config for Runtime {
 	type MaxScheduledPerBlock = ConstU32<512>;
 	type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Runtime>;
 	type Preimages = Preimage;
-}
-
-parameter_types! {
-	pub const Period: u32 = 6 * HOURS;
-	pub const Offset: u32 = 0;
-}
-
-impl pallet_session::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type ValidatorId = <Self as frame_system::Config>::AccountId;
-	// we don't have stash and controller, thus we don't need the convert as well.
-	type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
-	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
-	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
-	type SessionManager = CollatorSelection;
-	// Essentially just Aura, but lets be pedantic.
-	type SessionHandler = <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
-	type Keys = SessionKeys;
-	type WeightInfo = ();
 }
 
 impl pallet_sudo::Config for Runtime {
@@ -604,15 +572,6 @@ impl pallet_preimage::Config for Runtime {
 	>;
 }
 
-impl pallet_aura::Config for Runtime {
-	type AuthorityId = AuraId;
-	type MaxAuthorities = ConstU32<100_000>;
-	type DisabledValidators = ();
-	type AllowMultipleBlocksPerSlot = ConstBool<true>;
-	#[cfg(feature = "experimental")]
-	type SlotDuration = ConstU64<SLOT_DURATION>;
-}
-
 parameter_types! {
 	pub const PotId: PalletId = PalletId(*b"PotStake");
 	pub const MaxCandidates: u32 = 1000;
@@ -623,28 +582,6 @@ parameter_types! {
 	pub const StakingAdminBodyId: BodyId = BodyId::Defense;
 }
 
-/// We allow root and the StakingAdmin to execute privileged collator selection operations.
-pub type CollatorSelectionUpdateOrigin = EitherOfDiverse<
-	EnsureRoot<AccountId>,
-	EnsureXcm<IsVoiceOfBody<RelayLocation, StakingAdminBodyId>>,
->;
-
-impl pallet_collator_selection::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
-	type UpdateOrigin = CollatorSelectionUpdateOrigin;
-	type PotId = PotId;
-	type MaxCandidates = MaxCandidates;
-	type MinEligibleCollators = MinEligibleCollators;
-	type MaxInvulnerables = MaxInvulnerables;
-	// should be a multiple of session or things will get inconsistent
-	type KickThreshold = Period;
-	type ValidatorId = <Self as frame_system::Config>::AccountId;
-	type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
-	type ValidatorRegistration = Session;
-	type WeightInfo = ();
-}
-
 pub struct SafeModeWhitelistedCalls;
 impl Contains<RuntimeCall> for SafeModeWhitelistedCalls {
 	fn contains(call: &RuntimeCall) -> bool {
@@ -652,7 +589,6 @@ impl Contains<RuntimeCall> for SafeModeWhitelistedCalls {
 			RuntimeCall::System(_)
 			| RuntimeCall::SafeMode(_)
 			| RuntimeCall::TxPause(_)
-			// balance transfers are allowed
 			| RuntimeCall::Balances(_) => true,
 			_ => false,
 		}
@@ -734,7 +670,7 @@ construct_runtime!(
 		Multisig: pallet_multisig = 5,
 		Preimage: pallet_preimage = 6,
 		Scheduler: pallet_scheduler = 7,
-		SafeMode:  pallet_safe_mode = 8,
+		SafeMode: pallet_safe_mode = 8,
 		TxPause: pallet_tx_pause = 9,
 
 		// Monetary stuff.
@@ -747,18 +683,11 @@ construct_runtime!(
 		Council: pallet_collective::<Instance1> = 16,
 		Motion: pallet_motion = 17,
 
-		// Collator support. The order of these 4 are important and shall not change.
-		Authorship: pallet_authorship = 20,
-		CollatorSelection: pallet_collator_selection = 21,
-		Session: pallet_session = 22,
-		Aura: pallet_aura = 23,
-		AuraExt: cumulus_pallet_aura_ext = 24,
-
 		// XCM helpers.
 		XcmpQueue: cumulus_pallet_xcmp_queue = 30,
 		PolkadotXcm: pallet_xcm = 31,
 		CumulusXcm: cumulus_pallet_xcm = 32,
-		DmpQueue: cumulus_pallet_dmp_queue = 33,
+		MessageQueue: pallet_message_queue = 33,
 	}
 );
 
@@ -768,38 +697,18 @@ mod benches {
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_balances, Balances]
 		[pallet_assets, Assets]
-		[pallet_session, SessionBench::<Runtime>]
 		[pallet_scheduler, Scheduler]
 		[pallet_timestamp, Timestamp]
-		[pallet_collator_selection, CollatorSelection]
 		[pallet_multisig, Multisig]
 		[pallet_preimage, Preimage]
+		[cumulus_pallet_xcmp_queue, XcmpQueue]
+		[pallet_motion, Motion]
 		[pallet_safe_mode, SafeMode]
 		[pallet_tx_pause, TxPause]
-		[cumulus_pallet_xcmp_queue, XcmpQueue]
 	);
 }
 
 impl_runtime_apis! {
-	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
-		fn slot_duration() -> sp_consensus_aura::SlotDuration {
-			sp_consensus_aura::SlotDuration::from_millis(SLOT_DURATION)
-		}
-
-		fn authorities() -> Vec<AuraId> {
-			Aura::authorities().into_inner()
-		}
-	}
-
-	impl cumulus_primitives_aura::AuraUnincludedSegmentApi<Block> for Runtime {
-		fn can_build_upon(
-			included_hash: <Block as BlockT>::Hash,
-			slot: cumulus_primitives_aura::Slot,
-		) -> bool {
-			ConsensusHook::can_build_upon(included_hash, slot)
-		}
-	}
-
 	impl sp_api::Core<Block> for Runtime {
 		fn version() -> RuntimeVersion {
 			VERSION
@@ -809,7 +718,7 @@ impl_runtime_apis! {
 			Executive::execute_block(block)
 		}
 
-		fn initialize_block(header: &<Block as BlockT>::Header) {
+		fn initialize_block(header: &<Block as BlockT>::Header) -> sp_runtime::ExtrinsicInclusionMode {
 			Executive::initialize_block(header)
 		}
 	}
@@ -958,7 +867,6 @@ impl_runtime_apis! {
 			use frame_benchmarking::{Benchmarking, BenchmarkList};
 			use frame_support::traits::StorageInfoTrait;
 			use frame_system_benchmarking::Pallet as SystemBench;
-			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
 
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmarks!(list, extra);
@@ -975,9 +883,6 @@ impl_runtime_apis! {
 			use frame_system_benchmarking::Pallet as SystemBench;
 			impl frame_system_benchmarking::Config for Runtime {}
 
-			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
-			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
-
 			use frame_support::traits::WhitelistedStorageKeys;
 			let whitelist = AllPalletsWithSystem::whitelisted_storage_keys();
 
@@ -989,9 +894,19 @@ impl_runtime_apis! {
 			Ok(batches)
 		}
 	}
+
+	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
+		fn create_default_config() -> Vec<u8> {
+			create_default_config::<RuntimeGenesisConfig>()
+		}
+
+		fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
+			build_config::<RuntimeGenesisConfig>(config)
+		}
+	}
 }
 
 cumulus_pallet_parachain_system::register_validate_block! {
 	Runtime = Runtime,
-	BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
+	BlockExecutor = Executive,
 }
