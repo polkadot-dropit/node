@@ -34,7 +34,7 @@ use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT},
+	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, Verify},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
@@ -360,6 +360,9 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
+/// We allow root to execute privileged asset operations.
+pub type AssetsForceOrigin = EnsureRoot<AccountId>;
+
 parameter_types! {
 	pub const AssetDeposit: Balance = ZERO_DEPOSIT;
 	pub const AssetAccountDeposit: Balance = ZERO_DEPOSIT;
@@ -377,7 +380,7 @@ impl pallet_assets::Config for Runtime {
 	type AssetIdParameter = parity_scale_codec::Compact<u32>;
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
-	type ForceOrigin = EnsureRoot<AccountId>;
+	type ForceOrigin = AssetsForceOrigin;
 	type AssetDeposit = AssetDeposit;
 	type AssetAccountDeposit = AssetAccountDeposit;
 	type MetadataDepositBase = MetadataDepositBase;
@@ -390,6 +393,47 @@ impl pallet_assets::Config for Runtime {
 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
+}
+
+use pallet_nfts::PalletFeatures;
+parameter_types! {
+	pub NftsPalletFeatures: PalletFeatures = PalletFeatures::all_enabled();
+	pub const NftsMaxDeadlineDuration: BlockNumber = 12 * 30 * DAYS;
+	// Zero Deposits for NFTs
+	pub const NftsCollectionDeposit: Balance = ZERO_DEPOSIT;
+	pub const NftsItemDeposit: Balance = ZERO_DEPOSIT;
+	pub const NftsMetadataDepositBase: Balance = ZERO_DEPOSIT;
+	pub const NftsAttributeDepositBase: Balance = ZERO_DEPOSIT;
+	pub const NftsDepositPerByte: Balance = ZERO_DEPOSIT;
+}
+
+impl pallet_nfts::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type CollectionId = u32;
+	type ItemId = u32;
+	type Currency = Balances;
+	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
+	type ForceOrigin = AssetsForceOrigin;
+	type Locker = ();
+	type CollectionDeposit = NftsCollectionDeposit;
+	type ItemDeposit = NftsItemDeposit;
+	type MetadataDepositBase = NftsMetadataDepositBase;
+	type AttributeDepositBase = NftsAttributeDepositBase;
+	type DepositPerByte = NftsDepositPerByte;
+	type StringLimit = ConstU32<256>;
+	type KeyLimit = ConstU32<64>;
+	type ValueLimit = ConstU32<256>;
+	type ApprovalsLimit = ConstU32<20>;
+	type ItemAttributesApprovalsLimit = ConstU32<30>;
+	type MaxTips = ConstU32<10>;
+	type MaxDeadlineDuration = NftsMaxDeadlineDuration;
+	type MaxAttributesPerCall = ConstU32<10>;
+	type Features = NftsPalletFeatures;
+	type OffchainSignature = Signature;
+	type OffchainPublic = <Signature as Verify>::Signer;
+	type WeightInfo = pallet_nfts::weights::SubstrateWeight<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Helper = ();
 }
 
 parameter_types! {
@@ -672,28 +716,29 @@ construct_runtime!(
 		ParachainInfo: parachain_info = 3,
 
 		// Utility
-		Utility: pallet_utility = 4,
-		Multisig: pallet_multisig = 5,
-		Preimage: pallet_preimage = 6,
-		Scheduler: pallet_scheduler = 7,
-		SafeMode: pallet_safe_mode = 8,
-		TxPause: pallet_tx_pause = 9,
+		Utility: pallet_utility = 10,
+		Multisig: pallet_multisig = 11,
+		Preimage: pallet_preimage = 12,
+		Scheduler: pallet_scheduler = 13,
+		SafeMode: pallet_safe_mode = 14,
+		TxPause: pallet_tx_pause = 15,
 
 		// Monetary stuff.
-		Balances: pallet_balances = 10,
-		TransactionPayment: pallet_transaction_payment = 11,
-		Assets: pallet_assets = 12,
+		Balances: pallet_balances = 20,
+		TransactionPayment: pallet_transaction_payment = 21,
+		Assets: pallet_assets = 22,
+		Nfts: pallet_nfts = 23,
 
 		// Governance
-		Sudo: pallet_sudo = 15,
-		Council: pallet_collective::<Instance1> = 16,
-		Motion: pallet_motion = 17,
+		Sudo: pallet_sudo = 30,
+		Council: pallet_collective::<Instance1> = 31,
+		Motion: pallet_motion = 32,
 
 		// XCM helpers.
-		XcmpQueue: cumulus_pallet_xcmp_queue = 30,
-		PolkadotXcm: pallet_xcm = 31,
-		CumulusXcm: cumulus_pallet_xcm = 32,
-		MessageQueue: pallet_message_queue = 33,
+		XcmpQueue: cumulus_pallet_xcmp_queue = 40,
+		PolkadotXcm: pallet_xcm = 41,
+		CumulusXcm: cumulus_pallet_xcm = 42,
+		MessageQueue: pallet_message_queue = 43,
 	}
 );
 
@@ -703,6 +748,7 @@ mod benches {
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_balances, Balances]
 		[pallet_assets, Assets]
+		[pallet_nfts, Nfts]
 		[pallet_scheduler, Scheduler]
 		[pallet_timestamp, Timestamp]
 		[pallet_multisig, Multisig]

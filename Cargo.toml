@@ -50,6 +50,7 @@ pallet-balances = { version = "31.0.0", default-features = false, features = ["i
 pallet-collective = { version = "31.0.0", default-features = false }
 pallet-membership = { version = "31.0.0", default-features = false }
 pallet-multisig = { version = "31.0.0", default-features = false }
+pallet-nfts = { version = "25.0.0", default-features = false }
 pallet-preimage = { version = "31.0.0", default-features = false }
 pallet-scheduler = { version = "32.0.0", default-features = false }
 pallet-sudo = { version = "31.0.0", default-features = false }

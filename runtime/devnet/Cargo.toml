@@ -40,6 +40,7 @@ frame-try-runtime = { workspace = true, default-features = false, optional = tru
 pallet-assets = { workspace = true, default-features = false }
 pallet-balances = { workspace = true, default-features = false }
 pallet-collective = { workspace = true, default-features = false }
+pallet-nfts = { workspace = true, default-features = false }
 pallet-scheduler = { workspace = true, default-features = false }
 pallet-sudo = { workspace = true, default-features = false }
 pallet-timestamp = { workspace = true, default-features = false }
@@ -107,6 +108,7 @@ std = [
 	"pallet-message-queue/std",
 	"pallet-motion/std",
 	"pallet-multisig/std",
+	"pallet-nfts/std",
 	"pallet-preimage/std",
 	"pallet-scheduler/std",
 	"pallet-sudo/std",
@@ -150,6 +152,7 @@ runtime-benchmarks = [
 	"pallet-collective/runtime-benchmarks",
 	"pallet-motion/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
+	"pallet-nfts/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
@@ -175,6 +178,7 @@ try-runtime = [
 	"pallet-message-queue/try-runtime",
 	"pallet-motion/try-runtime",
 	"pallet-multisig/try-runtime",
+	"pallet-nfts/try-runtime",
 	"pallet-preimage/try-runtime",
 	"pallet-scheduler/try-runtime",
 	"pallet-sudo/try-runtime",

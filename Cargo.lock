@@ -2369,6 +2369,7 @@ dependencies = [
  "pallet-message-queue",
  "pallet-motion",
  "pallet-multisig",
+ "pallet-nfts",
  "pallet-preimage",
  "pallet-safe-mode",
  "pallet-scheduler",
@@ -5096,6 +5097,7 @@ dependencies = [
  "pallet-message-queue",
  "pallet-motion",
  "pallet-multisig",
+ "pallet-nfts",
  "pallet-preimage",
  "pallet-safe-mode",
  "pallet-scheduler",
@@ -6457,6 +6459,25 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "scale-info",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-nfts"
+version = "25.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6fed85cb8969cfbbf7681f16bc2d240cf377af021046c5628d563c8ed041aa26"
+dependencies = [
+ "enumflags2",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std",
