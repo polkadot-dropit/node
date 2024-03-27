@@ -44,7 +44,6 @@ frame-system = { version = "31.0.0", default-features = false }
 frame-system-benchmarking = { version = "31.0.0", default-features = false }
 frame-system-rpc-runtime-api = { version = "29.0.0", default-features = false }
 frame-try-runtime = { version = "0.37.0", default-features = false }
-pallet-aura = { version = "30.0.0", default-features = false }
 pallet-assets = { version = "32.0.0", default-features = false }
 # AUDIT: Allowing ED to be zero.
 pallet-balances = { version = "31.0.0", default-features = false, features = ["insecure_zero_ed"] }
@@ -80,7 +79,6 @@ sc-offchain = { version = "32.0.0" }
 sp-api = { version = "29.0.0", default-features = false }
 sp-block-builder = { version = "29.0.0", default-features = false }
 sp-blockchain = { version = "31.0.0" }
-sp-consensus-aura = { version = "0.35.0", default-features = false }
 sp-core = { version = "31.0.0", default-features = false }
 sp-genesis-builder = { version = "0.10.0", default-features = false }
 sp-inherents = { version = "29.0.0", default-features = false }
@@ -102,18 +100,15 @@ try-runtime-cli = { version = "0.41.0" }
 # Cumulus
 assets-common = { version = "0.10.0", default-features = false }
 cumulus-client-cli = { version = "0.10.0" }
-cumulus-client-consensus-aura = { version = "0.10.0" }
 cumulus-client-consensus-common = { version = "0.10.0" }
 cumulus-client-consensus-relay-chain = { version = "0.10.0" }
 cumulus-client-collator = { version = "0.10.0" }
 cumulus-client-parachain-inherent = { version = "0.4.0" }
 cumulus-client-service = { version = "0.10.0" }
 cumulus-client-consensus-proposer = { version = "0.10.0" }
-cumulus-pallet-aura-ext = { version = "0.10.0", default-features = false }
 cumulus-pallet-parachain-system = { version = "0.10.0", default-features = false }
 cumulus-pallet-xcm = { version = "0.10.0", default-features = false }
 cumulus-pallet-xcmp-queue = { version = "0.10.0", default-features = false }
-cumulus-primitives-aura = { version = "0.10.0", default-features = false }
 cumulus-primitives-core = { version = "0.10.0", default-features = false }
 cumulus-primitives-parachain-inherent = { version = "0.10.0" }
 cumulus-primitives-timestamp = { version = "0.10.0", default-features = false }
