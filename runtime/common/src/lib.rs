@@ -17,6 +17,8 @@ pub type Nonce = u32;
 /// up by `pallet_aura` to implement `fn slot_duration()`.
 ///
 /// Change this to adjust the block time.
+//
+// TODO: Update comment and/or usage to reflect we don't use aura.
 pub const MILLISECS_PER_BLOCK: u64 = 6000;
 
 // NOTE: Currently it is not possible to change the slot duration after the chain has started.

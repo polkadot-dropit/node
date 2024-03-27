@@ -31,7 +31,7 @@ use pallet_tx_pause::RuntimeCallNameOf;
 use parachains_common::message_queue::{NarrowOriginToSibling, ParaIdToSibling};
 use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
 use sp_api::impl_runtime_apis;
-use sp_core::{crypto::KeyTypeId, ConstBool, OpaqueMetadata};
+use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
 	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT},
@@ -48,7 +48,6 @@ pub use runtime_common::{
 	AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS, MAXIMUM_BLOCK_WEIGHT, MILLISECS_PER_BLOCK, MINUTES,
 	NORMAL_DISPATCH_RATIO, SLOT_DURATION,
 };
-pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
@@ -204,9 +203,7 @@ pub mod opaque {
 }
 
 impl_opaque_keys! {
-	pub struct SessionKeys {
-		pub aura: Aura,
-	}
+	pub struct SessionKeys { }
 }
 
 #[sp_version::runtime_version]
@@ -328,7 +325,7 @@ impl frame_system::Config for Runtime {
 impl pallet_timestamp::Config for Runtime {
 	/// A timestamp: milliseconds since the unix epoch.
 	type Moment = u64;
-	type OnTimestampSet = Aura;
+	type OnTimestampSet = ();
 	#[cfg(feature = "experimental")]
 	type MinimumPeriod = ConstU64<0>;
 	#[cfg(not(feature = "experimental"))]
@@ -433,7 +430,8 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type WeightInfo = ();
 }
 
-type ConsensusHook = cumulus_pallet_parachain_system::consensus_hook::RequireParentIncluded;
+type ConsensusHook =
+	cumulus_pallet_parachain_system::consensus_hook::FixedCapacityUnincludedSegment<2>;
 
 impl parachain_info::Config for Runtime {}
 
@@ -574,15 +572,6 @@ impl pallet_preimage::Config for Runtime {
 	>;
 }
 
-impl pallet_aura::Config for Runtime {
-	type AuthorityId = AuraId;
-	type MaxAuthorities = ConstU32<100_000>;
-	type DisabledValidators = ();
-	type AllowMultipleBlocksPerSlot = ConstBool<true>;
-	#[cfg(feature = "experimental")]
-	type SlotDuration = ConstU64<SLOT_DURATION>;
-}
-
 parameter_types! {
 	pub const PotId: PalletId = PalletId(*b"PotStake");
 	pub const MaxCandidates: u32 = 1000;
@@ -694,9 +683,6 @@ construct_runtime!(
 		Council: pallet_collective::<Instance1> = 16,
 		Motion: pallet_motion = 17,
 
-		// Collator support. The order of these 4 are important and shall not change.
-		Aura: pallet_aura = 23,
-
 		// XCM helpers.
 		XcmpQueue: cumulus_pallet_xcmp_queue = 30,
 		PolkadotXcm: pallet_xcm = 31,
@@ -723,16 +709,6 @@ mod benches {
 }
 
 impl_runtime_apis! {
-	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
-		fn slot_duration() -> sp_consensus_aura::SlotDuration {
-			sp_consensus_aura::SlotDuration::from_millis(SLOT_DURATION)
-		}
-
-		fn authorities() -> Vec<AuraId> {
-			Aura::authorities().into_inner()
-		}
-	}
-
 	impl sp_api::Core<Block> for Runtime {
 		fn version() -> RuntimeVersion {
 			VERSION

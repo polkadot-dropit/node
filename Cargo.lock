@@ -1645,49 +1645,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cumulus-client-consensus-aura"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8fbbba68555835c2e2d7f1c17060d3cd6fafafdb16597a2e680e7376f71dec51"
-dependencies = [
- "async-trait",
- "cumulus-client-collator",
- "cumulus-client-consensus-common",
- "cumulus-client-consensus-proposer",
- "cumulus-client-parachain-inherent",
- "cumulus-primitives-aura",
- "cumulus-primitives-core",
- "cumulus-relay-chain-interface",
- "futures",
- "parity-scale-codec",
- "polkadot-node-primitives",
- "polkadot-node-subsystem",
- "polkadot-overseer",
- "polkadot-primitives",
- "sc-client-api",
- "sc-consensus",
- "sc-consensus-aura",
- "sc-consensus-babe",
- "sc-consensus-slots",
- "sc-telemetry",
- "schnellru",
- "sp-api",
- "sp-application-crypto",
- "sp-block-builder",
- "sp-blockchain",
- "sp-consensus",
- "sp-consensus-aura",
- "sp-core",
- "sp-inherents",
- "sp-keystore",
- "sp-runtime",
- "sp-state-machine",
- "sp-timestamp",
- "substrate-prometheus-endpoint",
- "tracing",
-]
-
-[[package]]
 name = "cumulus-client-consensus-common"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1869,25 +1826,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cumulus-pallet-aura-ext"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47ec277f09a2c2b693bca6283eb6bc10aede2eaee43a7c395911235d8b632dab"
-dependencies = [
- "cumulus-pallet-parachain-system",
- "frame-support",
- "frame-system",
- "pallet-aura",
- "pallet-timestamp",
- "parity-scale-codec",
- "scale-info",
- "sp-application-crypto",
- "sp-consensus-aura",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
 name = "cumulus-pallet-parachain-system"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1976,21 +1914,6 @@ dependencies = [
  "sp-std",
  "staging-xcm",
  "staging-xcm-executor",
-]
-
-[[package]]
-name = "cumulus-primitives-aura"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b70d13f3fca1dfaeb868f4fff79c58fef8fa4f8e381a9002d93c50c23683abf"
-dependencies = [
- "parity-scale-codec",
- "polkadot-core-primitives",
- "polkadot-primitives",
- "sp-api",
- "sp-consensus-aura",
- "sp-runtime",
- "sp-std",
 ]
 
 [[package]]
@@ -2425,11 +2348,9 @@ name = "devnet-runtime"
 version = "0.1.0"
 dependencies = [
  "assets-common",
- "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcm",
  "cumulus-pallet-xcmp-queue",
- "cumulus-primitives-aura",
  "cumulus-primitives-core",
  "cumulus-primitives-timestamp",
  "cumulus-primitives-utility",
@@ -2443,7 +2364,6 @@ dependencies = [
  "hex-literal",
  "log",
  "pallet-assets",
- "pallet-aura",
  "pallet-balances",
  "pallet-collective",
  "pallet-message-queue",
@@ -2468,7 +2388,6 @@ dependencies = [
  "smallvec",
  "sp-api",
  "sp-block-builder",
- "sp-consensus-aura",
  "sp-core",
  "sp-genesis-builder",
  "sp-inherents",
@@ -5156,11 +5075,9 @@ name = "mainnet-runtime"
 version = "0.1.0"
 dependencies = [
  "assets-common",
- "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcm",
  "cumulus-pallet-xcmp-queue",
- "cumulus-primitives-aura",
  "cumulus-primitives-core",
  "cumulus-primitives-timestamp",
  "cumulus-primitives-utility",
@@ -5174,7 +5091,6 @@ dependencies = [
  "hex-literal",
  "log",
  "pallet-assets",
- "pallet-aura",
  "pallet-balances",
  "pallet-collective",
  "pallet-message-queue",
@@ -5199,7 +5115,6 @@ dependencies = [
  "smallvec",
  "sp-api",
  "sp-block-builder",
- "sp-consensus-aura",
  "sp-core",
  "sp-genesis-builder",
  "sp-inherents",
@@ -6013,24 +5928,6 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
-name = "pallet-aura"
-version = "30.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3f1176f435a94b510b99bc2aaaa84788d60f8c5352c5f34f165b37523e448a1"
-dependencies = [
- "frame-support",
- "frame-system",
- "log",
- "pallet-timestamp",
- "parity-scale-codec",
- "scale-info",
- "sp-application-crypto",
- "sp-consensus-aura",
  "sp-runtime",
  "sp-std",
 ]
@@ -7203,13 +7100,11 @@ dependencies = [
  "color-print",
  "cumulus-client-cli",
  "cumulus-client-collator",
- "cumulus-client-consensus-aura",
  "cumulus-client-consensus-common",
  "cumulus-client-consensus-proposer",
  "cumulus-client-consensus-relay-chain",
  "cumulus-client-parachain-inherent",
  "cumulus-client-service",
- "cumulus-primitives-aura",
  "cumulus-primitives-core",
  "cumulus-primitives-parachain-inherent",
  "cumulus-relay-chain-inprocess-interface",
@@ -7251,7 +7146,6 @@ dependencies = [
  "sp-api",
  "sp-block-builder",
  "sp-blockchain",
- "sp-consensus-aura",
  "sp-core",
  "sp-io",
  "sp-keystore",
@@ -10223,36 +10117,6 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "sp-state-machine",
- "substrate-prometheus-endpoint",
- "thiserror",
-]
-
-[[package]]
-name = "sc-consensus-aura"
-version = "0.37.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "988701c58dcd9521412cfcbb54457b17546bb4363f021ee8131af409a027b879"
-dependencies = [
- "async-trait",
- "futures",
- "log",
- "parity-scale-codec",
- "sc-block-builder",
- "sc-client-api",
- "sc-consensus",
- "sc-consensus-slots",
- "sc-telemetry",
- "sp-api",
- "sp-application-crypto",
- "sp-block-builder",
- "sp-blockchain",
- "sp-consensus",
- "sp-consensus-aura",
- "sp-consensus-slots",
- "sp-core",
- "sp-inherents",
- "sp-keystore",
- "sp-runtime",
  "substrate-prometheus-endpoint",
  "thiserror",
 ]
