@@ -631,11 +631,7 @@ pub struct SafeModeWhitelistedCalls;
 impl Contains<RuntimeCall> for SafeModeWhitelistedCalls {
 	fn contains(call: &RuntimeCall) -> bool {
 		match call {
-			RuntimeCall::System(_)
-			| RuntimeCall::SafeMode(_)
-			| RuntimeCall::TxPause(_)
-			// balance transfers are allowed
-			| RuntimeCall::Balances(_) => true,
+			RuntimeCall::System(_) | RuntimeCall::SafeMode(_) | RuntimeCall::TxPause(_) => true,
 			_ => false,
 		}
 	}
@@ -653,7 +649,6 @@ impl pallet_safe_mode::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	// balance transfers are still allowed
 	type WhitelistedCalls = SafeModeWhitelistedCalls;
 	// Safe mode will last 4 hours
 	type EnterDuration = EnterDuration;
@@ -679,11 +674,10 @@ impl pallet_safe_mode::Config for Runtime {
 
 /// Calls that cannot be paused by the tx-pause pallet.
 pub struct TxPauseWhitelistedCalls;
-/// Whitelist `Balances::transfer_keep_alive`, all others are pauseable.
+/// All calls are paused.
 impl Contains<RuntimeCallNameOf<Runtime>> for TxPauseWhitelistedCalls {
 	fn contains(full_name: &RuntimeCallNameOf<Runtime>) -> bool {
 		match (full_name.0.as_slice(), full_name.1.as_slice()) {
-			(b"Balances", b"transfer_keep_alive") => true,
 			_ => false,
 		}
 	}
@@ -696,7 +690,6 @@ impl pallet_tx_pause::Config for Runtime {
 	type PauseOrigin = EnsureRoot<AccountId>;
 	// Only root origin can unpause transactions
 	type UnpauseOrigin = EnsureRoot<AccountId>;
-	// Balance transfers will not be paused
 	type WhitelistedCalls = TxPauseWhitelistedCalls;
 	type MaxNameLen = ConstU32<256>;
 	type WeightInfo = pallet_tx_pause::weights::SubstrateWeight<Runtime>;
