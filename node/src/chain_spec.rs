@@ -10,10 +10,6 @@ use sp_runtime::traits::{IdentifyAccount, Verify};
 pub type MainChainSpec =
 	sc_service::GenericChainSpec<mainnet_runtime::RuntimeGenesisConfig, Extensions>;
 
-/// Specialized `ChainSpec` for the development parachain runtime.
-pub type DevnetChainSpec =
-	sc_service::GenericChainSpec<devnet_runtime::RuntimeGenesisConfig, Extensions>;
-
 /// The default XCM version to set in genesis config.
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
 
@@ -51,98 +47,6 @@ where
 	AccountPublic: From<<TPublic::Pair as Pair>::Public>,
 {
 	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
-}
-
-pub mod devnet {
-	use super::*;
-	pub fn development_config() -> DevnetChainSpec {
-		// Give your base currency a unit name and decimal places
-		let mut properties = sc_chain_spec::Properties::new();
-		properties.insert("tokenSymbol".into(), "DEV".into());
-		properties.insert("tokenDecimals".into(), 12.into());
-		properties.insert("ss58Format".into(), 42.into());
-
-		DevnetChainSpec::builder(
-			devnet_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-			Extensions { relay_chain: "rococo-local".into(), para_id: PARA_ID },
-		)
-		.with_name("Development")
-		.with_id("dev")
-		.with_chain_type(ChainType::Development)
-		.with_genesis_config_patch(testnet_genesis(
-			vec![
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_account_id_from_seed::<sr25519::Public>("Bob"),
-				get_account_id_from_seed::<sr25519::Public>("Charlie"),
-				get_account_id_from_seed::<sr25519::Public>("Dave"),
-				get_account_id_from_seed::<sr25519::Public>("Eve"),
-				get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-				get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-			],
-			Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
-			PARA_ID.into(),
-		))
-		.build()
-	}
-
-	pub fn local_testnet_config() -> DevnetChainSpec {
-		// Give your base currency a unit name and decimal places
-		let mut properties = sc_chain_spec::Properties::new();
-		properties.insert("tokenSymbol".into(), "UNIT".into());
-		properties.insert("tokenDecimals".into(), 12.into());
-		properties.insert("ss58Format".into(), 42.into());
-
-		DevnetChainSpec::builder(
-			devnet_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
-			Extensions { relay_chain: "rococo-local".into(), para_id: PARA_ID },
-		)
-		.with_name("Development")
-		.with_id("devnet_local")
-		.with_chain_type(ChainType::Local)
-		.with_genesis_config_patch(testnet_genesis(
-			vec![
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_account_id_from_seed::<sr25519::Public>("Bob"),
-				get_account_id_from_seed::<sr25519::Public>("Charlie"),
-				get_account_id_from_seed::<sr25519::Public>("Dave"),
-				get_account_id_from_seed::<sr25519::Public>("Eve"),
-				get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-				get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-				get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-			],
-			Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
-			PARA_ID.into(),
-		))
-		.build()
-	}
-
-	fn testnet_genesis(
-		endowed_accounts: Vec<AccountId>,
-		root: Option<AccountId>,
-		id: ParaId,
-	) -> serde_json::Value {
-		serde_json::json!({
-			"balances": {
-				"balances": endowed_accounts.iter().cloned().map(|k| (k, 1u64 << 60)).collect::<Vec<_>>(),
-			},
-			"parachainInfo": {
-				"parachainId": id,
-			},
-			"polkadotXcm": {
-				"safeXcmVersion": Some(SAFE_XCM_VERSION),
-			},
-			"sudo": { "key": root }
-		})
-	}
 }
 
 pub mod mainnet {
