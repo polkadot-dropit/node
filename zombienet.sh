@@ -48,6 +48,8 @@ zombienet_spawn() {
   if [ ! -f target/release/parachain-template-node ]; then
     echo "building parachain-template-node..."
     cargo build --release
+  else
+    echo "skipping parachain-template-node build..."
   fi
   echo "spawning polkadot-local relay chain plus parachain-template-node..."
   ./$ZOMBIENET_BIN spawn zombienet-config/rococo-local-config.toml -p native
@@ -55,10 +57,8 @@ zombienet_spawn() {
 
 zombienet_test() {
   zombienet_init
-  if [ ! -f target/release/parachain-template-node ]; then
-    echo "building parachain-template-node..."
-    cargo build --release
-  fi
+  echo "building parachain-template-node..."
+  cargo build --release
   echo "running smoke test..."
   ./$ZOMBIENET_BIN test zombienet-config/tests/0001-parachains-smoke-test.zndsl -p native
 }

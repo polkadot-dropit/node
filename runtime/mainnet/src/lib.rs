@@ -34,7 +34,7 @@ use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT},
+	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, Verify},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult,
 };
@@ -222,7 +222,11 @@ pub const MICROUNIT: Balance = 1_000_000;
 pub const MILLIUNIT: Balance = 1_000 * MICROUNIT;
 pub const UNIT: Balance = 1_000 * MILLIUNIT;
 
-pub const EXISTENTIAL_DEPOSIT: Balance = MILLIUNIT;
+// AUDIT: Existential deposit is explicitly zero.
+pub const EXISTENTIAL_DEPOSIT: Balance = 0;
+
+// AUDIT: Some pallets are given zero deposit.
+pub const ZERO_DEPOSIT: Balance = 0;
 
 pub const fn deposit(items: u32, bytes: u32) -> Balance {
 	(items as Balance * 20 * UNIT + (bytes as Balance) * 100 * MICROUNIT) / 100
@@ -313,7 +317,8 @@ impl frame_system::Config for Runtime {
 	type SS58Prefix = SS58Prefix;
 	/// The action to take on a Runtime Upgrade
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	/// The maximum number of consumers allowed on a single account.
+	type MaxConsumers = frame_support::traits::ConstU32<1024>;
 	type RuntimeTask = RuntimeTask;
 	type SingleBlockMigrations = ();
 	type MultiBlockMigrator = ();
@@ -355,13 +360,16 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
+/// We allow root to execute privileged asset operations.
+pub type AssetsForceOrigin = EnsureRoot<AccountId>;
+
 parameter_types! {
-	pub const AssetDeposit: Balance = 10 * UNIT;
-	pub const AssetAccountDeposit: Balance = deposit(1, 16);
-	pub const ApprovalDeposit: Balance = EXISTENTIAL_DEPOSIT;
+	pub const AssetDeposit: Balance = ZERO_DEPOSIT;
+	pub const AssetAccountDeposit: Balance = ZERO_DEPOSIT;
+	pub const ApprovalDeposit: Balance = ZERO_DEPOSIT;
 	pub const StringLimit: u32 = 50;
-	pub const MetadataDepositBase: Balance = deposit(1, 68);
-	pub const MetadataDepositPerByte: Balance = deposit(0, 1);
+	pub const MetadataDepositBase: Balance = ZERO_DEPOSIT;
+	pub const MetadataDepositPerByte: Balance = ZERO_DEPOSIT;
 }
 
 impl pallet_assets::Config for Runtime {
@@ -372,7 +380,7 @@ impl pallet_assets::Config for Runtime {
 	type AssetIdParameter = parity_scale_codec::Compact<u32>;
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
-	type ForceOrigin = EnsureRoot<AccountId>;
+	type ForceOrigin = AssetsForceOrigin;
 	type AssetDeposit = AssetDeposit;
 	type AssetAccountDeposit = AssetAccountDeposit;
 	type MetadataDepositBase = MetadataDepositBase;
@@ -385,6 +393,47 @@ impl pallet_assets::Config for Runtime {
 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
+}
+
+use pallet_nfts::PalletFeatures;
+parameter_types! {
+	pub NftsPalletFeatures: PalletFeatures = PalletFeatures::all_enabled();
+	pub const NftsMaxDeadlineDuration: BlockNumber = 12 * 30 * DAYS;
+	// Zero Deposits for NFTs
+	pub const NftsCollectionDeposit: Balance = ZERO_DEPOSIT;
+	pub const NftsItemDeposit: Balance = ZERO_DEPOSIT;
+	pub const NftsMetadataDepositBase: Balance = ZERO_DEPOSIT;
+	pub const NftsAttributeDepositBase: Balance = ZERO_DEPOSIT;
+	pub const NftsDepositPerByte: Balance = ZERO_DEPOSIT;
+}
+
+impl pallet_nfts::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type CollectionId = u32;
+	type ItemId = u32;
+	type Currency = Balances;
+	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
+	type ForceOrigin = AssetsForceOrigin;
+	type Locker = ();
+	type CollectionDeposit = NftsCollectionDeposit;
+	type ItemDeposit = NftsItemDeposit;
+	type MetadataDepositBase = NftsMetadataDepositBase;
+	type AttributeDepositBase = NftsAttributeDepositBase;
+	type DepositPerByte = NftsDepositPerByte;
+	type StringLimit = ConstU32<256>;
+	type KeyLimit = ConstU32<64>;
+	type ValueLimit = ConstU32<256>;
+	type ApprovalsLimit = ConstU32<20>;
+	type ItemAttributesApprovalsLimit = ConstU32<30>;
+	type MaxTips = ConstU32<10>;
+	type MaxDeadlineDuration = NftsMaxDeadlineDuration;
+	type MaxAttributesPerCall = ConstU32<10>;
+	type Features = NftsPalletFeatures;
+	type OffchainSignature = Signature;
+	type OffchainPublic = <Signature as Verify>::Signer;
+	type WeightInfo = pallet_nfts::weights::SubstrateWeight<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Helper = ();
 }
 
 parameter_types! {
@@ -475,11 +524,6 @@ impl pallet_message_queue::Config for Runtime {
 }
 
 parameter_types! {
-	pub const Period: u32 = 6 * HOURS;
-	pub const Offset: u32 = 0;
-}
-
-parameter_types! {
 	pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *
 	RuntimeBlockWeights::get().max_block;
 	pub const NoPreimagePostponement: Option<u32> = Some(10);
@@ -537,23 +581,24 @@ impl pallet_motion::Config for Runtime {
 }
 
 parameter_types! {
-	// One storage item; key size is 32; value is size 4+4+16+32 bytes = 56 bytes.
-	pub const DepositBase: Balance = deposit(1, 88);
-	// Additional storage item size of 32 bytes.
-	pub const DepositFactor: Balance = deposit(0, 32);
+	// One storage item; key size is 32; value is size 4+4+16+32 bytes = 56 bytes. But we set deposits to zero.
+	pub const MultisigDepositBase: Balance = ZERO_DEPOSIT;
+	// Additional storage item size of 32 bytes, but we set deposits to zero.
+	pub const MultisigDepositFactor: Balance = ZERO_DEPOSIT;
 }
 
 impl pallet_multisig::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type Currency = Balances;
-	type DepositBase = DepositBase;
-	type DepositFactor = DepositFactor;
+	type DepositBase = MultisigDepositBase;
+	type DepositFactor = MultisigDepositFactor;
 	type MaxSignatories = ConstU32<100>;
 	type WeightInfo = pallet_multisig::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
+	// Keep preimage deposits, as these items are heavy and does not intersect with the average user experience.
 	pub const PreimageBaseDeposit: Balance = deposit(2, 64);
 	pub const PreimageByteDeposit: Balance = deposit(0, 1);
 	pub const PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
@@ -586,10 +631,7 @@ pub struct SafeModeWhitelistedCalls;
 impl Contains<RuntimeCall> for SafeModeWhitelistedCalls {
 	fn contains(call: &RuntimeCall) -> bool {
 		match call {
-			RuntimeCall::System(_)
-			| RuntimeCall::SafeMode(_)
-			| RuntimeCall::TxPause(_)
-			| RuntimeCall::Balances(_) => true,
+			RuntimeCall::System(_) | RuntimeCall::SafeMode(_) | RuntimeCall::TxPause(_) => true,
 			_ => false,
 		}
 	}
@@ -607,7 +649,6 @@ impl pallet_safe_mode::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	// balance transfers are still allowed
 	type WhitelistedCalls = SafeModeWhitelistedCalls;
 	// Safe mode will last 4 hours
 	type EnterDuration = EnterDuration;
@@ -633,11 +674,10 @@ impl pallet_safe_mode::Config for Runtime {
 
 /// Calls that cannot be paused by the tx-pause pallet.
 pub struct TxPauseWhitelistedCalls;
-/// Whitelist `Balances::transfer_keep_alive`, all others are pauseable.
+/// All calls are paused.
 impl Contains<RuntimeCallNameOf<Runtime>> for TxPauseWhitelistedCalls {
 	fn contains(full_name: &RuntimeCallNameOf<Runtime>) -> bool {
 		match (full_name.0.as_slice(), full_name.1.as_slice()) {
-			(b"Balances", b"transfer_keep_alive") => true,
 			_ => false,
 		}
 	}
@@ -650,7 +690,6 @@ impl pallet_tx_pause::Config for Runtime {
 	type PauseOrigin = EnsureRoot<AccountId>;
 	// Only root origin can unpause transactions
 	type UnpauseOrigin = EnsureRoot<AccountId>;
-	// Balance transfers will not be paused
 	type WhitelistedCalls = TxPauseWhitelistedCalls;
 	type MaxNameLen = ConstU32<256>;
 	type WeightInfo = pallet_tx_pause::weights::SubstrateWeight<Runtime>;
@@ -666,28 +705,29 @@ construct_runtime!(
 		ParachainInfo: parachain_info = 3,
 
 		// Utility
-		Utility: pallet_utility = 4,
-		Multisig: pallet_multisig = 5,
-		Preimage: pallet_preimage = 6,
-		Scheduler: pallet_scheduler = 7,
-		SafeMode: pallet_safe_mode = 8,
-		TxPause: pallet_tx_pause = 9,
+		Utility: pallet_utility = 10,
+		Multisig: pallet_multisig = 11,
+		Preimage: pallet_preimage = 12,
+		Scheduler: pallet_scheduler = 13,
+		SafeMode: pallet_safe_mode = 14,
+		TxPause: pallet_tx_pause = 15,
 
 		// Monetary stuff.
-		Balances: pallet_balances = 10,
-		TransactionPayment: pallet_transaction_payment = 11,
-		Assets: pallet_assets = 12,
+		Balances: pallet_balances = 20,
+		TransactionPayment: pallet_transaction_payment = 21,
+		Assets: pallet_assets = 22,
+		Nfts: pallet_nfts = 23,
 
 		// Governance
-		Sudo: pallet_sudo = 15,
-		Council: pallet_collective::<Instance1> = 16,
-		Motion: pallet_motion = 17,
+		Sudo: pallet_sudo = 30,
+		Council: pallet_collective::<Instance1> = 31,
+		Motion: pallet_motion = 32,
 
 		// XCM helpers.
-		XcmpQueue: cumulus_pallet_xcmp_queue = 30,
-		PolkadotXcm: pallet_xcm = 31,
-		CumulusXcm: cumulus_pallet_xcm = 32,
-		MessageQueue: pallet_message_queue = 33,
+		XcmpQueue: cumulus_pallet_xcmp_queue = 40,
+		PolkadotXcm: pallet_xcm = 41,
+		CumulusXcm: cumulus_pallet_xcm = 42,
+		MessageQueue: pallet_message_queue = 43,
 	}
 );
 
@@ -697,6 +737,7 @@ mod benches {
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_balances, Balances]
 		[pallet_assets, Assets]
+		[pallet_nfts, Nfts]
 		[pallet_scheduler, Scheduler]
 		[pallet_timestamp, Timestamp]
 		[pallet_multisig, Multisig]
