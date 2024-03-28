@@ -30,7 +30,7 @@ serde_json = "1.0.114"
 smallvec = "1.13.2"
 
 # Local dependencies
-mainnet-runtime = { path = "runtime" }
+dropit-runtime = { path = "runtime" }
 pallet-motion = { path = "pallets/motion", default-features = false }
 
 # Substrate

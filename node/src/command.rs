@@ -4,7 +4,7 @@ use cumulus_primitives_core::ParaId;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 use log::info;
 
-use mainnet_runtime::runtime_common::Block;
+use dropit_runtime::runtime_common::Block;
 use sc_cli::{
 	ChainSpec, CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams,
 	NetworkParams, Result, SharedParams, SubstrateCli,
@@ -327,7 +327,7 @@ pub fn run() -> Result<()> {
 						// This will enable the node to decode ss58 addresses with this prefix.
 						// This SS58 version/format is also only used by the node and not by the runtime.
 						sp_core::crypto::set_default_ss58_version(
-							mainnet_runtime::SS58Prefix::get().into(),
+							dropit_runtime::SS58Prefix::get().into(),
 						);
 						crate::service::start_parachain_node(
 							config,

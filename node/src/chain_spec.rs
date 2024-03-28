@@ -1,5 +1,5 @@
 use cumulus_primitives_core::ParaId;
-use mainnet_runtime::runtime_common::{AccountId, Signature};
+use dropit_runtime::runtime_common::{AccountId, Signature};
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
 use serde::{Deserialize, Serialize};
@@ -8,7 +8,7 @@ use sp_runtime::traits::{IdentifyAccount, Verify};
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
 pub type MainChainSpec =
-	sc_service::GenericChainSpec<mainnet_runtime::RuntimeGenesisConfig, Extensions>;
+	sc_service::GenericChainSpec<dropit_runtime::RuntimeGenesisConfig, Extensions>;
 
 /// The default XCM version to set in genesis config.
 const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
@@ -59,7 +59,7 @@ pub mod mainnet {
 		properties.insert("ss58Format".into(), 42.into());
 
 		MainChainSpec::builder(
-			mainnet_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
+			dropit_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 			Extensions { relay_chain: "rococo-local".into(), para_id: PARA_ID },
 		)
 		.with_name("Mainnet Dev")
@@ -94,7 +94,7 @@ pub mod mainnet {
 		properties.insert("ss58Format".into(), 42.into());
 
 		MainChainSpec::builder(
-			mainnet_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
+			dropit_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
 			Extensions { relay_chain: "rococo-local".into(), para_id: PARA_ID },
 		)
 		.with_name("Mainnet Local")
