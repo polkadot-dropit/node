@@ -1,5 +1,5 @@
 use cumulus_primitives_core::ParaId;
-use dropit_runtime::runtime_common::{AccountId, Signature};
+use dropit_runtime::common::{AccountId, Signature};
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
 use serde::{Deserialize, Serialize};
