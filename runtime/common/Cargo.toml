@@ -1,0 +1,51 @@
+[package]
+authors = { workspace = true }
+description = "Runtime Common"
+edition = { workspace = true }
+license = { workspace = true }
+name = "runtime-common"
+repository = { workspace = true }
+version = "1.0.0"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+parity-scale-codec = { workspace = true, default-features = false, features = [
+  "derive",
+] }
+scale-info = { workspace = true, default-features = false, features = [
+  "derive",
+] }
+log = { workspace = true }
+
+# Substrate
+frame-support = { workspace = true, default-features = false }
+frame-system = { workspace = true, default-features = false }
+pallet-author-reward-dest = { workspace = true, default-features = false }
+pallet-treasury = { workspace = true, default-features = false }
+pallet-balances = { workspace = true, default-features = false }
+sp-runtime = { workspace = true, default-features = false }
+sp-std = { workspace = true, default-features = false }
+
+parachains-common = { workspace = true, default-features = false }
+polkadot-primitives = { workspace = true, default-features = false }
+
+[features]
+default = ["std"]
+std = [
+  "frame-support/std",
+  "frame-system/std",
+  "pallet-author-reward-dest/std",
+  "pallet-treasury/std",
+  "pallet-balances/std",
+  "sp-runtime/std",
+]
+
+runtime-benchmarks = [
+  "frame-support/runtime-benchmarks",
+  "frame-system/runtime-benchmarks",
+  "pallet-treasury/runtime-benchmarks",
+  "pallet-balances/runtime-benchmarks",
+  "sp-runtime/runtime-benchmarks",
+]

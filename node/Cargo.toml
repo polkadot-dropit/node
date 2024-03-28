@@ -21,6 +21,7 @@ serde_json = { workspace = true }
 
 # Local
 dropit-runtime = { workspace = true }
+primitives-author-reward-dest = { workspace = true }
 
 # Substrate
 frame-benchmarking = { workspace = true }

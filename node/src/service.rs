@@ -27,6 +27,8 @@ use sc_service::{Configuration, PartialComponents, TFullBackend, TFullClient, Ta
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 
+use sp_runtime::{AccountId32, KeyTypeId};
+
 use substrate_prometheus_endpoint::Registry;
 
 // Local Runtime types
@@ -152,6 +154,7 @@ fn start_relay_chain_consensus(
 	collator_key: CollatorPair,
 	overseer_handle: OverseerHandle,
 	announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
+	keystore: sp_keystore::KeystorePtr,
 ) {
 	let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
 		task_manager.spawn_handle(),
@@ -169,6 +172,7 @@ fn start_relay_chain_consensus(
 			relay_chain_interface: relay_chain_interface.clone(),
 			create_inherent_data_providers: move |_, (relay_parent, validation_data)| {
 				let relay_chain_interface = relay_chain_interface.clone();
+				let keystore = keystore.clone();
 				async move {
 					let parachain_inherent =
 							cumulus_client_parachain_inherent::ParachainInherentDataProvider::create_at(
@@ -185,7 +189,33 @@ fn start_relay_chain_consensus(
 
 					let time = sp_timestamp::InherentDataProvider::from_system_time();
 
-					Ok((time, parachain_inherent))
+					let keys = keystore.keys(KeyTypeId(*b"rdst")).map_err(|e| {
+						Box::<dyn std::error::Error + Send + Sync>::from(format!(
+							"Failed to find more than zero key for `rdst` in keystore, this \
+								is used for reward destination: {:?}",
+							e
+						))
+					})?;
+
+					let key = keys.first().ok_or_else(|| {
+						Box::<dyn std::error::Error + Send + Sync>::from(
+							"Failed to find more than zero key for `rdst` in keystore, this \
+								is used for reward destination",
+						)
+					})?;
+
+					let key = AccountId32::try_from(&key[..]).map_err(|e| {
+						Box::<dyn std::error::Error + Send + Sync>::from(format!(
+							"Failed to convert author reward destination key to \
+								AccountId32: {:?}",
+							e
+						))
+					})?;
+
+					let author_reward_dest =
+						primitives_author_reward_dest::InherentDataProvider::new(key);
+
+					Ok((author_reward_dest, time, parachain_inherent))
 				}
 			},
 		},
@@ -375,6 +405,7 @@ pub async fn start_parachain_node(
 			collator_key.expect("Command line arguments do not allow this. qed"),
 			overseer_handle,
 			announce_block,
+			params.keystore_container.keystore(),
 		);
 	}
 

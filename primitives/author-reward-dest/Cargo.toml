@@ -1,0 +1,31 @@
+[package]
+name = "primitives-author-reward-dest"
+version = "0.1.0"
+description = "Primitive types for author reward dest pallet usage."
+homepage = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+async-trait = { workspace = true, optional = true }
+thiserror = { workspace = true, optional = true }
+parity-scale-codec = { workspace = true, features = ["derive"] }
+sp-core = { workspace = true }
+sp-inherents = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+
+[features]
+default = ["std"]
+std = [
+	"async-trait",
+	"thiserror",
+	"parity-scale-codec/std",
+	"sp-core/std",
+	"sp-inherents/std",
+	"sp-runtime/std",
+	"sp-std/std",
+]

@@ -1,6 +1,11 @@
 use sp_runtime::Perbill;
 
-use frame_support::weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight};
+use frame_support::{
+	traits::{Currency, Imbalance, OnUnbalanced},
+	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
+};
+use pallet_balances::NegativeImbalance;
+use crate::{Runtime, Treasury, Balances};
 
 // Cumulus types re-export
 //https://github.com/paritytech/cumulus/tree/master/parachains/common
@@ -41,3 +46,35 @@ pub const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
 	WEIGHT_REF_TIME_PER_SECOND.saturating_mul(2),
 	polkadot_primitives::MAX_POV_SIZE as u64,
 );
+
+/// Logic for the author to get a portion of fees.
+pub struct ToAuthor;
+impl OnUnbalanced<NegativeImbalance<Runtime>> for ToAuthor
+{
+	fn on_nonzero_unbalanced(amount: NegativeImbalance<Runtime>) {
+		if let Some(author) = <pallet_author_reward_dest::Pallet<Runtime>>::author() {
+			Balances::resolve_creating(&author, amount);
+		} else {
+			log::warn!("Author reward destination not available, unable to reward author.");
+		}
+	}
+}
+
+pub struct DealWithFees;
+impl OnUnbalanced<NegativeImbalance<Runtime>> for DealWithFees
+{
+	fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item = NegativeImbalance<Runtime>>) {
+		if let Some(fees) = fees_then_tips.next() {
+			// for fees, 80% to treasury, 20% to author
+			// TODO: adjust the split
+			let mut split = fees.ration(80, 20);
+			if let Some(tips) = fees_then_tips.next() {
+				// for tips, if any, 100% to author
+				// TODO: does part of tip go to treasury?
+				tips.merge_into(&mut split.1);
+			}
+			<Treasury as OnUnbalanced<_>>::on_unbalanced(split.0);
+			<ToAuthor as OnUnbalanced<_>>::on_unbalanced(split.1);
+		}
+	}
+}

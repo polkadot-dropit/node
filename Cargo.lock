@@ -2492,6 +2492,7 @@ dependencies = [
  "hex-literal",
  "log",
  "pallet-assets",
+ "pallet-author-reward-dest",
  "pallet-balances",
  "pallet-collective",
  "pallet-message-queue",
@@ -2505,6 +2506,7 @@ dependencies = [
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
+ "pallet-treasury",
  "pallet-tx-pause",
  "pallet-utility",
  "pallet-xcm",
@@ -5873,6 +5875,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-author-reward-dest"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "primitives-author-reward-dest",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-authority-discovery"
 version = "31.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7082,6 +7100,7 @@ dependencies = [
  "polkadot-cli",
  "polkadot-primitives",
  "polkadot-service",
+ "primitives-author-reward-dest",
  "sc-basic-authorship",
  "sc-chain-spec",
  "sc-cli",
@@ -8815,6 +8834,19 @@ dependencies = [
  "impl-serde",
  "scale-info",
  "uint",
+]
+
+[[package]]
+name = "primitives-author-reward-dest"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "parity-scale-codec",
+ "sp-core",
+ "sp-inherents",
+ "sp-runtime",
+ "sp-std",
+ "thiserror",
 ]
 
 [[package]]
