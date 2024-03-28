@@ -207,10 +207,37 @@ impl_opaque_keys! {
 	pub struct SessionKeys { }
 }
 
+#[cfg(not(any(feature = "kusama-runtime", feature = "rococo-runtime")))]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("mainnet"),
-	impl_name: create_runtime_str!("mainnet"),
+	spec_name: create_runtime_str!("dropit-polkadot"),
+	impl_name: create_runtime_str!("dropit-polkadot"),
+	authoring_version: 1,
+	spec_version: 1000,
+	impl_version: 0,
+	apis: RUNTIME_API_VERSIONS,
+	transaction_version: 1,
+	state_version: 1,
+};
+
+#[cfg(feature = "kusama-runtime")]
+#[sp_version::runtime_version]
+pub const VERSION: RuntimeVersion = RuntimeVersion {
+	spec_name: create_runtime_str!("dropit-kusama"),
+	impl_name: create_runtime_str!("dropit-kusama"),
+	authoring_version: 1,
+	spec_version: 1000,
+	impl_version: 0,
+	apis: RUNTIME_API_VERSIONS,
+	transaction_version: 1,
+	state_version: 1,
+};
+
+#[cfg(feature = "rococo-runtime")]
+#[sp_version::runtime_version]
+pub const VERSION: RuntimeVersion = RuntimeVersion {
+	spec_name: create_runtime_str!("dropit-rococo"),
+	impl_name: create_runtime_str!("dropit-rococo"),
 	authoring_version: 1,
 	spec_version: 1000,
 	impl_version: 0,
