@@ -44,6 +44,7 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use xcm_config::XcmOriginToTransactDispatchOrigin;
 
+pub mod runtime_common;
 pub use runtime_common::{
 	AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS, MAXIMUM_BLOCK_WEIGHT, MILLISECS_PER_BLOCK, MINUTES,
 	NORMAL_DISPATCH_RATIO, SLOT_DURATION,

@@ -30,7 +30,7 @@ use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use substrate_prometheus_endpoint::Registry;
 
 // Local Runtime types
-use runtime_common::{Block, Hash};
+use mainnet_runtime::runtime_common::{Block, Hash};
 
 #[cfg(not(feature = "runtime-benchmarks"))]
 type HostFunctions =

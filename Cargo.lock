@@ -5049,8 +5049,8 @@ dependencies = [
  "parachains-common",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
+ "polkadot-primitives",
  "polkadot-runtime-common",
- "runtime-common",
  "scale-info",
  "smallvec",
  "sp-api",
@@ -7082,7 +7082,6 @@ dependencies = [
  "polkadot-cli",
  "polkadot-primitives",
  "polkadot-service",
- "runtime-common",
  "sc-basic-authorship",
  "sc-chain-spec",
  "sc-cli",
@@ -9583,19 +9582,6 @@ checksum = "c247d24e63230cdb56463ae328478bd5eac8b8faa8c69461a77e8e323afac90e"
 dependencies = [
  "libc",
  "windows-sys 0.48.0",
-]
-
-[[package]]
-name = "runtime-common"
-version = "1.0.0"
-dependencies = [
- "frame-support",
- "parachains-common",
- "parity-scale-codec",
- "polkadot-primitives",
- "scale-info",
- "sp-runtime",
- "sp-std",
 ]
 
 [[package]]

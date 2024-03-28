@@ -1,5 +1,5 @@
 use cumulus_primitives_core::ParaId;
-use runtime_common::{AccountId, Signature};
+use mainnet_runtime::runtime_common::{AccountId, Signature};
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
 use serde::{Deserialize, Serialize};

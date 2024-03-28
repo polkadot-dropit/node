@@ -32,7 +32,6 @@ smallvec = "1.13.2"
 # Local dependencies
 mainnet-runtime = { path = "runtime" }
 pallet-motion = { path = "pallets/motion", default-features = false }
-runtime-common = { path = "runtime/common", default-features = false }
 
 # Substrate
 frame-benchmarking = { version = "31.0.0", default-features = false }

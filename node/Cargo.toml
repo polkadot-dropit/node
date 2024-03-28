@@ -21,7 +21,6 @@ serde_json = { workspace = true }
 
 # Local
 mainnet-runtime = { workspace = true }
-runtime-common = { workspace = true }
 
 # Substrate
 frame-benchmarking = { workspace = true }
