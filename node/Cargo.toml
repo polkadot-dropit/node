@@ -20,9 +20,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 
 # Local
-devnet-runtime = { workspace = true }
-mainnet-runtime = { workspace = true }
-runtime-common = { workspace = true }
+dropit-runtime = { workspace = true }
 
 # Substrate
 frame-benchmarking = { workspace = true }
@@ -88,12 +86,12 @@ substrate-build-script-utils = { workspace = true }
 default = []
 runtime-benchmarks = [
   "try-runtime-cli/try-runtime",
-  "mainnet-runtime/runtime-benchmarks",
-  "devnet-runtime/runtime-benchmarks",
+  "dropit-runtime/runtime-benchmarks",
   "polkadot-cli/runtime-benchmarks",
 ]
 try-runtime = [
   "try-runtime-cli/try-runtime",
-  "mainnet-runtime/try-runtime",
-  "devnet-runtime/try-runtime",
+  "dropit-runtime/try-runtime",
 ]
+kusama-runtime = ["dropit-runtime/kusama-runtime"]
+rococo-runtime = ["dropit-runtime/rococo-runtime"]

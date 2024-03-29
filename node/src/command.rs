@@ -4,7 +4,7 @@ use cumulus_primitives_core::ParaId;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 use log::info;
 
-use runtime_common::Block;
+use dropit_runtime::common::Block;
 use sc_cli::{
 	ChainSpec, CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams,
 	NetworkParams, Result, SharedParams, SubstrateCli,
@@ -25,8 +25,6 @@ use crate::{
 enum Runtime {
 	/// This is the default runtime (actually based on rococo)
 	#[default]
-	Default,
-	Devnet,
 	Mainnet,
 }
 
@@ -35,15 +33,8 @@ trait RuntimeResolver {
 }
 /// Private helper that pattern matches on the input (which is expected to be a ChainSpec ID)
 /// and returns the Runtime accordingly.
-fn runtime(id: &str) -> Runtime {
-	if id.starts_with("dev") {
-		Runtime::Devnet
-	} else if id.starts_with("main") {
-		Runtime::Mainnet
-	} else {
-		log::warn!("No specific runtime was recognized for ChainSpec's Id: '{}', so Runtime::Default will be used", id);
-		Runtime::default()
-	}
+fn runtime(_id: &str) -> Runtime {
+	Runtime::Mainnet
 }
 /// Resolve runtime from ChainSpec ID
 impl RuntimeResolver for dyn ChainSpec {
@@ -70,16 +61,11 @@ impl RuntimeResolver for PathBuf {
 
 fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 	Ok(match id {
-		"dev" => Box::new(chain_spec::devnet::development_config()),
-		"" | "devnet-local" | "local" => Box::new(chain_spec::devnet::local_testnet_config()),
 		"main" | "mainnet-dev" => Box::new(chain_spec::mainnet::development_config()),
-		"mainnet-local" => Box::new(chain_spec::mainnet::local_testnet_config()),
+		"" | "mainnet-local" => Box::new(chain_spec::mainnet::local_testnet_config()),
 		path => {
 			let path: PathBuf = path.into();
 			match path.runtime() {
-				Runtime::Devnet | Runtime::Default => {
-					Box::new(chain_spec::DevnetChainSpec::from_json_file(path)?)
-				},
 				Runtime::Mainnet => Box::new(chain_spec::MainChainSpec::from_json_file(path)?),
 			}
 		},
@@ -161,10 +147,6 @@ impl SubstrateCli for RelayChainCli {
 macro_rules! construct_benchmark_partials {
 	($config:expr, |$partials:ident| $code:expr) => {
 		match $config.chain_spec.runtime() {
-			Runtime::Devnet | Runtime::Default => {
-				let $partials = new_partial(&$config)?;
-				$code
-			},
 			Runtime::Mainnet => {
 				let $partials = new_partial(&$config)?;
 				$code
@@ -339,28 +321,13 @@ pub fn run() -> Result<()> {
 				info!("Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
 
 				match config.chain_spec.runtime() {
-					Runtime::Default | Runtime::Devnet => {
+					Runtime::Mainnet => {
 						// If you want to support a custom SS58 prefix (that isn’t yet registered in the ss58-registry),
 						// you are required to call this function with your desired prefix [Ss58AddressFormat::custom].
 						// This will enable the node to decode ss58 addresses with this prefix.
 						// This SS58 version/format is also only used by the node and not by the runtime.
 						sp_core::crypto::set_default_ss58_version(
-							devnet_runtime::SS58Prefix::get().into(),
-						);
-						crate::service::start_parachain_node(
-							config,
-							polkadot_config,
-							collator_options,
-							id,
-							hwbench,
-						)
-						.await
-						.map(|r| r.0)
-						.map_err(Into::into)
-					},
-					Runtime::Mainnet => {
-						sp_core::crypto::set_default_ss58_version(
-							mainnet_runtime::SS58Prefix::get().into(),
+							dropit_runtime::SS58Prefix::get().into(),
 						);
 						crate::service::start_parachain_node(
 							config,

@@ -1,5 +1,5 @@
 [package]
-name = "mainnet-runtime"
+name = "dropit-runtime"
 version = "0.1.0"
 authors = { workspace = true }
 description = "A new Cumulus FRAME-based Substrate Runtime, ready for hacking together a parachain."
@@ -27,7 +27,6 @@ smallvec = { workspace = true }
 
 # Local
 pallet-motion = { workspace = true, default-features = false }
-runtime-common = { workspace = true, default-features = false }
 
 # Substrate
 frame-benchmarking = { workspace = true, default-features = false, optional = true }
@@ -65,6 +64,7 @@ sp-version = { workspace = true, default-features = false }
 
 # Polkadot
 pallet-xcm = { workspace = true, default-features = false }
+polkadot-primitives = { workspace = true, default-features = false }
 polkadot-parachain-primitives = { workspace = true, default-features = false }
 polkadot-runtime-common = { workspace = true, default-features = false }
 xcm = { workspace = true, default-features = false }
@@ -190,3 +190,5 @@ try-runtime = [
   "pallet-tx-pause/try-runtime",
   "parachain-info/try-runtime",
 ]
+kusama-runtime = []
+rococo-runtime = []

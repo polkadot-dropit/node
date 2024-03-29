@@ -1,10 +1,8 @@
-#![cfg_attr(not(feature = "std"), no_std)]
 use sp_runtime::Perbill;
 
 use frame_support::weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight};
 
 // Cumulus types re-export
-// These types are shared between the mainnet and devnet runtimes
 //https://github.com/paritytech/cumulus/tree/master/parachains/common
 pub use parachains_common::{AccountId, AuraId, Balance, Block, BlockNumber, Hash, Signature};
 

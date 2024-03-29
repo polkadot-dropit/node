@@ -7,7 +7,7 @@
 
 use std::sync::Arc;
 
-use runtime_common::{AccountId, Balance, Block, Nonce};
+use dropit_runtime::common::{AccountId, Balance, Block, Nonce};
 
 use sc_client_api::AuxStore;
 pub use sc_rpc::DenyUnsafe;

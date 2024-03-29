@@ -30,7 +30,7 @@ use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use substrate_prometheus_endpoint::Registry;
 
 // Local Runtime types
-use runtime_common::{Block, Hash};
+use dropit_runtime::common::{Block, Hash};
 
 #[cfg(not(feature = "runtime-benchmarks"))]
 type HostFunctions =
@@ -45,7 +45,7 @@ type HostFunctions = (
 
 type ParachainExecutor = WasmExecutor<HostFunctions>;
 
-type ParachainClient = TFullClient<Block, mainnet_runtime::RuntimeApi, ParachainExecutor>;
+type ParachainClient = TFullClient<Block, dropit_runtime::RuntimeApi, ParachainExecutor>;
 
 type ParachainBackend = TFullBackend<Block>;
 
@@ -93,7 +93,7 @@ pub fn new_partial(
 		.build();
 
 	let (client, backend, keystore_container, task_manager) =
-		sc_service::new_full_parts::<Block, mainnet_runtime::RuntimeApi, _>(
+		sc_service::new_full_parts::<Block, dropit_runtime::RuntimeApi, _>(
 			config,
 			telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
 			executor,

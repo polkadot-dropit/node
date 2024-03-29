@@ -2,7 +2,7 @@
 panic = "unwind"
 
 [workspace]
-members = ["node", "pallets/*", "runtime/mainnet", "runtime/devnet"]
+members = ["node", "pallets/*", "runtime"]
 resolver = "2"
 
 [workspace.package]
@@ -30,10 +30,8 @@ serde_json = "1.0.114"
 smallvec = "1.13.2"
 
 # Local dependencies
-devnet-runtime = { path = "runtime/devnet" }
-mainnet-runtime = { path = "runtime/mainnet" }
+dropit-runtime = { path = "runtime" }
 pallet-motion = { path = "pallets/motion", default-features = false }
-runtime-common = { path = "runtime/common", default-features = false }
 
 # Substrate
 frame-benchmarking = { version = "31.0.0", default-features = false }

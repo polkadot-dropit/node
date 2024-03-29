@@ -44,7 +44,8 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use xcm_config::XcmOriginToTransactDispatchOrigin;
 
-pub use runtime_common::{
+pub mod common;
+pub use common::{
 	AVERAGE_ON_INITIALIZE_RATIO, DAYS, HOURS, MAXIMUM_BLOCK_WEIGHT, MILLISECS_PER_BLOCK, MINUTES,
 	NORMAL_DISPATCH_RATIO, SLOT_DURATION,
 };
@@ -55,12 +56,12 @@ pub use sp_runtime::{MultiAddress, Perbill, Permill};
 // Polkadot imports
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
 
-pub use runtime_common::{AccountId, Balance, BlockNumber, Hash, Signature};
+pub use common::{AccountId, Balance, BlockNumber, Hash, Signature};
 
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
 // XCM Imports
-use runtime_common::Nonce;
+use common::Nonce;
 use xcm::latest::prelude::BodyId;
 
 /// The address format for describing accounts.
@@ -206,10 +207,37 @@ impl_opaque_keys! {
 	pub struct SessionKeys { }
 }
 
+#[cfg(not(any(feature = "kusama-runtime", feature = "rococo-runtime")))]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("devnet"),
-	impl_name: create_runtime_str!("devnet"),
+	spec_name: create_runtime_str!("dropit-polkadot"),
+	impl_name: create_runtime_str!("dropit-polkadot"),
+	authoring_version: 1,
+	spec_version: 1000,
+	impl_version: 0,
+	apis: RUNTIME_API_VERSIONS,
+	transaction_version: 1,
+	state_version: 1,
+};
+
+#[cfg(feature = "kusama-runtime")]
+#[sp_version::runtime_version]
+pub const VERSION: RuntimeVersion = RuntimeVersion {
+	spec_name: create_runtime_str!("dropit-kusama"),
+	impl_name: create_runtime_str!("dropit-kusama"),
+	authoring_version: 1,
+	spec_version: 1000,
+	impl_version: 0,
+	apis: RUNTIME_API_VERSIONS,
+	transaction_version: 1,
+	state_version: 1,
+};
+
+#[cfg(feature = "rococo-runtime")]
+#[sp_version::runtime_version]
+pub const VERSION: RuntimeVersion = RuntimeVersion {
+	spec_name: create_runtime_str!("dropit-rococo"),
+	impl_name: create_runtime_str!("dropit-rococo"),
 	authoring_version: 1,
 	spec_version: 1000,
 	impl_version: 0,

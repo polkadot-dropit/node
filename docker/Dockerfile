@@ -39,8 +39,8 @@ HEALTHCHECK --interval=300s --timeout=75s --start-period=30s --retries=3 \
 # specified with the --target build flag. This just preserves one of the builder's
 # outputs, which can then be moved into a volume at runtime
 FROM debian:bullseye-slim as runtime
-# Available options: devnet, mainnet or rococo
-ARG environment=devnet
+# Available options: mainnet or rococo
+ARG environment=mainnet
 COPY --from=builder \
     /workdir/target/release/wbuild/parachain-template-node-runtime/${environment}_runtime.wasm \
     /var/opt/
