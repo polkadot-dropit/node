@@ -93,6 +93,5 @@ try-runtime = [
   "try-runtime-cli/try-runtime",
   "dropit-runtime/try-runtime",
 ]
-polkadot-runtime = ["dropit-runtime/polkadot-runtime"]
 kusama-runtime = ["dropit-runtime/kusama-runtime"]
 rococo-runtime = ["dropit-runtime/rococo-runtime"]

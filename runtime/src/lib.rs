@@ -207,7 +207,7 @@ impl_opaque_keys! {
 	pub struct SessionKeys { }
 }
 
-#[cfg(feature = "polkadot-runtime")]
+#[cfg(not(any(feature = "kusama-runtime", feature = "rococo-runtime")))]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("dropit-polkadot"),

@@ -2,8 +2,6 @@
 fn main() {
 	substrate_wasm_builder::WasmBuilder::new()
 		.with_current_project()
-		.set_file_name("polkadot_runtime_binary.rs")
-		.enable_feature("polkadot-runtime")
 		.export_heap_base()
 		.import_memory()
 		.build();
