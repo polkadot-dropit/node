@@ -190,5 +190,6 @@ try-runtime = [
   "pallet-tx-pause/try-runtime",
   "parachain-info/try-runtime",
 ]
+polkadot-runtime = []
 kusama-runtime = []
 rococo-runtime = []
