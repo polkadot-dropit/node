@@ -40,8 +40,8 @@ pub type LocationToAccountId = (
 	AccountId32Aliases<RelayNetwork, AccountId>,
 );
 
-// These configurations make Reserve Backed DOT/KSM to be the native token of this chain.
-pub mod use_dot_as_native {
+// These configurations make reserve backed relay token to be the native token of this chain.
+pub mod use_relay_as_native {
 	use super::*;
 
 	/// AssetTransactor for handling the relay chain token
@@ -143,9 +143,9 @@ impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = XcmRouter;
 	// How to withdraw and deposit an asset.
-	type AssetTransactor = use_dot_as_native::AssetTransactor<Balances>;
+	type AssetTransactor = use_relay_as_native::AssetTransactor<Balances>;
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
-	type IsReserve = use_dot_as_native::IsReserve;
+	type IsReserve = use_relay_as_native::IsReserve;
 	type IsTeleporter = (); // Teleporting is disabled.
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
