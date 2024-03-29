@@ -14,8 +14,8 @@ use xcm::latest::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowExplicitUnpaidExecutionFrom, AllowTopLevelPaidExecutionFrom,
 	DenyReserveTransferToRelayChain, DenyThenTry, EnsureXcmOrigin, FixedWeightBounds,
-	FrameTransactionalProcessor, FungibleAdapter, IsConcrete, NativeAsset, ParentAsSuperuser,
-	ParentIsPreset, RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
+	FrameTransactionalProcessor, FungibleAdapter, IsConcrete, ParentAsSuperuser, ParentIsPreset,
+	RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 	TrailingSetTopicAsId, WithComputedOrigin, WithUniqueTopic,
 };
@@ -40,19 +40,47 @@ pub type LocationToAccountId = (
 	AccountId32Aliases<RelayNetwork, AccountId>,
 );
 
-/// Means for transacting assets on this chain.
-pub type LocalAssetTransactor = FungibleAdapter<
-	// Use this currency:
-	Balances,
-	// Use this currency when it is a fungible asset matching the given location or name:
-	IsConcrete<RelayLocation>,
-	// Do a simple punn to convert an AccountId32 Location into a native chain account ID:
-	LocationToAccountId,
-	// Our chain's account ID type (we can't get away without mentioning it explicitly):
-	AccountId,
-	// We don't track any teleports.
-	(),
->;
+// These configurations make Reserve Backed DOT/KSM to be the native token of this chain.
+pub mod use_dot_as_native {
+	use super::*;
+
+	/// AssetTransactor for handling the relay chain token
+	pub type FungibleTransactor<BalancesPallet> = FungibleAdapter<
+		// Use this implementation of the `fungible::*` traits.
+		// `Balances` is the name given to the balances pallet in this particular recipe.
+		// Any implementation of the traits would suffice.
+		BalancesPallet,
+		// This transactor deals with the native token of the Relay Chain.
+		// This token is referenced by the Location of the Relay Chain relative to this chain
+		// -- Location::parent().
+		IsConcrete<RelayLocation>,
+		// How to convert an XCM Location into a local account id.
+		// This is also something that's configured in the XCM executor.
+		LocationToAccountId,
+		// The type for account ids, only needed because `fungible` is generic over it.
+		AccountId,
+		// Not tracking teleports.
+		// This recipe only uses reserve asset transfers to handle the Relay Chain token.
+		(),
+	>;
+
+	/// Actual configuration item that'll be set in the XCM config.
+	/// A tuple could be used here to have multiple transactors, each (potentially) handling
+	/// different assets.
+	/// In this recipe, we only have one.
+	pub type AssetTransactor<T> = FungibleTransactor<T>;
+
+	parameter_types! {
+		/// Reserves are specified using a pair `(AssetFilter, Location)`.
+		/// Each pair means that the specified Location is a reserve for all the assets in AssetsFilter.
+		/// Here, we are specifying that the Relay Chain is the reserve location for its native token.
+		pub RelayTokenForRelay: (AssetFilter, Location) =
+			(Wild(AllOf { id: AssetId(Parent.into()), fun: WildFungible }), Parent.into());
+	}
+
+	/// The wrapper type xcm_builder::Case is needed in order to use this in the configuration.
+	pub type IsReserve = xcm_builder::Case<RelayTokenForRelay>;
+}
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
 /// ready for dispatching a transaction with Xcm's `Transact`. There is an `OriginKind` which can
@@ -115,9 +143,9 @@ impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = XcmRouter;
 	// How to withdraw and deposit an asset.
-	type AssetTransactor = LocalAssetTransactor;
+	type AssetTransactor = use_dot_as_native::AssetTransactor<Balances>;
 	type OriginConverter = XcmOriginToTransactDispatchOrigin;
-	type IsReserve = NativeAsset;
+	type IsReserve = use_dot_as_native::IsReserve;
 	type IsTeleporter = (); // Teleporting is disabled.
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
