@@ -189,15 +189,13 @@ fn start_relay_chain_consensus(
 					let time = sp_timestamp::InherentDataProvider::from_system_time();
 
 					let env_var = "DROPIT_AUTHOR_REWARD_DEST";
-					let key = std::env::var(env_var)
-						.map_err(|e| {
-							Box::<dyn std::error::Error + Send + Sync>::from(format!(
-								"Failed to get author reward destination from environment variable \
+					let key = std::env::var(env_var).map_err(|e| {
+						Box::<dyn std::error::Error + Send + Sync>::from(format!(
+							"Failed to get author reward destination from environment variable \
 								`{}`: {:?}",
-								env_var,
-								e
-							))
-						})?;
+							env_var, e
+						))
+					})?;
 
 					let key = AccountId32::from_string(key.as_str()).map_err(|e| {
 						Box::<dyn std::error::Error + Send + Sync>::from(format!(
