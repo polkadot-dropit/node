@@ -82,4 +82,7 @@ parathreads [here](https://wiki.polkadot.network/docs/learn-parathreads).
 
 ### Run a collator
 
-The destination address for receiving part of fees and tip must be set in the keystore at the key: `rdst`
+The destination address for receiving part of fees and tip must be set through the environment variable: `DROPIT_AUTHOR_REWARD_DEST`
+TODO: finish adding variable in env in tests
+TODO: make a test on the zombienet that the log is ok that the reward dest is set
+
