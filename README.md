@@ -82,5 +82,4 @@ parathreads [here](https://wiki.polkadot.network/docs/learn-parathreads).
 
 ### Run a collator
 
-The destination address for receiving part of fees and tip must be set through the environment variable: `DROPIT_AUTHOR_REWARD_DEST`
-The format for this address is SS58
+The destination address for receiving part of fees and tip must be set through the environment variable: `DROPIT_AUTHOR_REWARD_DEST` with the format SS58.
