@@ -1,11 +1,11 @@
 use sp_runtime::Perbill;
 
+use crate::{Balances, Runtime, Treasury};
 use frame_support::{
 	traits::{Currency, Imbalance, OnUnbalanced},
 	weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight},
 };
 use pallet_balances::NegativeImbalance;
-use crate::{Runtime, Treasury, Balances};
 
 // Cumulus types re-export
 //https://github.com/paritytech/cumulus/tree/master/parachains/common
@@ -49,8 +49,7 @@ pub const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
 
 /// Logic for the author to get a portion of fees.
 pub struct ToAuthor;
-impl OnUnbalanced<NegativeImbalance<Runtime>> for ToAuthor
-{
+impl OnUnbalanced<NegativeImbalance<Runtime>> for ToAuthor {
 	fn on_nonzero_unbalanced(amount: NegativeImbalance<Runtime>) {
 		if let Some(author) = <pallet_author_reward_dest::Pallet<Runtime>>::author() {
 			Balances::resolve_creating(&author, amount);
@@ -61,8 +60,7 @@ impl OnUnbalanced<NegativeImbalance<Runtime>> for ToAuthor
 }
 
 pub struct DealWithFees;
-impl OnUnbalanced<NegativeImbalance<Runtime>> for DealWithFees
-{
+impl OnUnbalanced<NegativeImbalance<Runtime>> for DealWithFees {
 	fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item = NegativeImbalance<Runtime>>) {
 		if let Some(fees) = fees_then_tips.next() {
 			// for fees, 80% to treasury, 20% to author
