@@ -14,20 +14,17 @@ pub type InherentType = sp_core::crypto::AccountId32;
 /// Errors that can occur while checking the `set author reward dest` inherent.
 #[derive(Encode, sp_runtime::RuntimeDebug)]
 #[cfg_attr(feature = "std", derive(Decode, thiserror::Error))]
-pub enum InherentError {
-	/// The inherent set author reward dest is required and missing.
-	#[cfg_attr(
-		feature = "std",
-		error("The inherent set author reward dest is required and missing.")
-	)]
-	Required,
-}
+pub struct InherentError;
 
 impl IsFatalError for InherentError {
 	fn is_fatal_error(&self) -> bool {
-		match self {
-			InherentError::Required => true,
-		}
+		true
+	}
+}
+
+impl sp_std::fmt::Display for InherentError {
+	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+		write!(f, "Error for author reward destination inherent")
 	}
 }
 
