@@ -97,9 +97,19 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		DistributionCreated { id: DistributionId },
-		DistributionAdded { id: DistributionId, recipient: T::AccountId, amount: AssetBalanceOf<T> },
-		DistributionClaimed { id: DistributionId, recipient: T::AccountId, amount: AssetBalanceOf<T> },
+		DistributionCreated {
+			id: DistributionId,
+		},
+		DistributionAdded {
+			id: DistributionId,
+			recipient: T::AccountId,
+			amount: AssetBalanceOf<T>,
+		},
+		DistributionClaimed {
+			id: DistributionId,
+			recipient: T::AccountId,
+			amount: AssetBalanceOf<T>,
+		},
 	}
 
 	#[pallet::error]
