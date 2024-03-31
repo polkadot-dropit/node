@@ -99,12 +99,15 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		DistributionCreated { id: DistributionId },
 		DistributionAdded { id: DistributionId, recipient: T::AccountId, amount: AssetBalanceOf<T> },
+		DistributionClaimed { id: DistributionId, recipient: T::AccountId, amount: AssetBalanceOf<T> },
 	}
 
 	#[pallet::error]
 	pub enum Error<T> {
 		// The provided distribution id does not exist.
 		DistributionIdDoesNotExist,
+		// The distribution does not exist.
+		DistributionDoesNotExist,
 		// The call is only accessible by the distribution creator.
 		CreatorOnly,
 	}
@@ -192,6 +195,31 @@ pub mod pallet {
 				AssetDistribution::<T>::insert(id, recipient.clone(), amount);
 				Self::deposit_event(Event::<T>::DistributionAdded { id, recipient, amount });
 			}
+
+			Ok(())
+		}
+
+		/// This adds multiple distribution entries for a accounts and amounts for `id`.
+		/// It is possible that this overwrites an existing entries, so the distribution `creator`
+		/// should take special care to remove duplicates before calling this function.
+		#[pallet::call_index(4)]
+		#[pallet::weight(Weight::default())]
+		pub fn claim_distribution(origin: OriginFor<T>, id: DistributionId) -> DispatchResult {
+			let recipient = ensure_signed(origin)?;
+			let Info { asset_id, stash_account, .. } =
+				DistributionInfo::<T>::get(id).ok_or(Error::<T>::DistributionIdDoesNotExist)?;
+
+			let amount = AssetDistribution::<T>::take(id, &recipient)
+				.ok_or(Error::<T>::DistributionDoesNotExist)?;
+			T::Fungibles::transfer(
+				asset_id,
+				&stash_account,
+				&recipient,
+				amount,
+				Preservation::Expendable,
+			)?;
+
+			Self::deposit_event(Event::<T>::DistributionClaimed { id, recipient, amount });
 
 			Ok(())
 		}
