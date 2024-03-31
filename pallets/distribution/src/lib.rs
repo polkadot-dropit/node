@@ -38,7 +38,8 @@ pub mod pallet {
 		pallet_prelude::*,
 		sp_runtime::traits::AccountIdConversion,
 		sp_runtime::ArithmeticError,
-		traits::{fungible, fungibles},
+		traits::fungibles::Mutate,
+		traits::{fungible, fungibles, tokens::Preservation},
 	};
 	use frame_system::pallet_prelude::*;
 
@@ -95,10 +96,15 @@ pub mod pallet {
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
-	pub enum Event<T: Config> {}
+	pub enum Event<T: Config> {
+		DistributionCreated { id: DistributionId },
+	}
 
 	#[pallet::error]
-	pub enum Error<T> {}
+	pub enum Error<T> {
+		// The provided distribution id does not exist.
+		DistributionIdDoesNotExist,
+	}
 
 	// Dispatchable functions allows users to interact with the pallet and invoke state changes.
 	// These functions materialize as "extrinsics", which are often compared to transactions.
@@ -120,12 +126,31 @@ pub mod pallet {
 			NextDistributionId::<T>::put(next_id);
 			DistributionInfo::<T>::insert(id, info);
 
+			Self::deposit_event(Event::<T>::DistributionCreated { id });
+
+			Ok(())
+		}
+
+		/// Attempts to transfer an `amount` of the expected asset to the `stash_account`.
+		/// This is just a convenience function, and could be done by calling `transfer` with the appropriate pallet to the `stash_account`.
+		#[pallet::call_index(1)]
+		#[pallet::weight(Weight::default())]
+		pub fn fund_distribution(
+			origin: OriginFor<T>,
+			id: DistributionId,
+			amount: AssetBalanceOf<T>,
+		) -> DispatchResult {
+			let from = ensure_signed(origin)?;
+			let Info { asset_id, stash_account, .. } =
+				DistributionInfo::<T>::get(id).ok_or(Error::<T>::DistributionIdDoesNotExist)?;
+			T::Fungibles::transfer(asset_id, &from, &stash_account, amount, Preservation::Protect)?;
+
 			Ok(())
 		}
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// The account ID of a bounty account
+		/// The stash `AccountId` used for distributing funds.
 		pub fn stash_account(id: DistributionId) -> T::AccountId {
 			// only use one byte prefix to support 16 byte account id (used by test)
 			// "modl" ++ "dropit/d" ++ "sa" is 14 bytes, and two bytes remaining for distribution index
