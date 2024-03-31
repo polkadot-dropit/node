@@ -20,9 +20,9 @@ scale-info = { workspace = true, default-features = false, features = [
 	"derive",
 ] }
 frame-benchmarking = { workspace = true, default-features = false, optional = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
-sp-std = { workspace = true }
+frame-support = { workspace = true, default-features = false }
+frame-system = { workspace = true, default-features = false }
+sp-std = { workspace = true, default-features = false }
 sp-runtime = { workspace = true, default-features = false }
 pallet-collective = { workspace = true, default-features = false }
 
@@ -30,6 +30,7 @@ pallet-collective = { workspace = true, default-features = false }
 sp-core = { workspace = true, default-features = false }
 sp-io = { workspace = true, default-features = false }
 pallet-balances = { workspace = true, default-features = false }
+pallet-assets = { workspace = true, default-features = false }
 pallet-membership = { workspace = true, default-features = false }
 
 [features]
@@ -43,6 +44,7 @@ std = [
 	"sp-std/std",
 	"pallet-collective/std",
 	"pallet-balances/std",
+	"pallet-assets/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

@@ -1,148 +1,131 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use frame_support::traits::fungibles;
+/// Edit this file to define custom logic or remove it if it is not needed.
+/// Learn more about FRAME and the core library of Substrate FRAME pallets:
+/// <https://docs.substrate.io/reference/frame-pallets/>
+pub use pallet::*;
+
 #[cfg(test)]
 mod mock;
+
 #[cfg(test)]
 mod tests;
 
-#[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
+use frame_support::traits::fungible;
 
-pub mod weights;
-pub use weights::WeightInfo;
+pub type AssetIdOf<T> = <<T as Config>::Fungibles as fungibles::Inspect<
+	<T as frame_system::Config>::AccountId,
+>>::AssetId;
 
-use sp_runtime::DispatchResult;
-use sp_std::prelude::*;
+pub type BalanceOf<T> = <<T as Config>::NativeBalance as fungible::Inspect<
+	<T as frame_system::Config>::AccountId,
+>>::Balance;
 
-pub use pallet::*;
+pub type AssetBalanceOf<T> = <<T as Config>::Fungibles as fungibles::Inspect<
+	<T as frame_system::Config>::AccountId,
+>>::Balance;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use super::{DispatchResult, *};
-	use frame_support::pallet_prelude::*;
+	use frame_support::{
+		pallet_prelude::*,
+		traits::{fungible, fungibles},
+	};
 	use frame_system::pallet_prelude::*;
-
-	use frame_support::{dispatch::GetDispatchInfo, traits::UnfilteredDispatchable};
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
+	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-		type RuntimeCall: Parameter
-			+ UnfilteredDispatchable<RuntimeOrigin = Self::RuntimeOrigin>
-			+ GetDispatchInfo;
+		/// Type to access the Balances Pallet.
+		type NativeBalance: fungible::Inspect<Self::AccountId>
+			+ fungible::Mutate<Self::AccountId>
+			+ fungible::hold::Inspect<Self::AccountId>
+			+ fungible::hold::Mutate<Self::AccountId>
+			+ fungible::freeze::Inspect<Self::AccountId>
+			+ fungible::freeze::Mutate<Self::AccountId>;
 
-		type SimpleMajorityOrigin: EnsureOrigin<Self::RuntimeOrigin>;
-		type SuperMajorityOrigin: EnsureOrigin<Self::RuntimeOrigin>;
-		type UnanimousOrigin: EnsureOrigin<Self::RuntimeOrigin>;
-		/// Type representing the weight of this pallet
-		type WeightInfo: WeightInfo;
+		/// Type to access the Assets Pallet.
+		type Fungibles: fungibles::Inspect<Self::AccountId>
+			+ fungibles::Mutate<Self::AccountId>
+			+ fungibles::Create<Self::AccountId>;
 	}
 
+	// The pallet's runtime storage items.
+	// https://docs.substrate.io/main-docs/build/runtime-storage/
+	#[pallet::storage]
+	#[pallet::getter(fn something)]
+	// Learn more about declaring storage items:
+	// https://docs.substrate.io/main-docs/build/runtime-storage/#declaring-storage-items
+	pub type Something<T> = StorageValue<_, u32>;
+
+	// Pallets use events to inform users when important changes are made.
+	// https://docs.substrate.io/main-docs/build/events-errors/
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// A SimpleMajority motion was executed. motion_result contains the call result
-		DispatchSimpleMajority { motion_result: DispatchResult },
-		/// A SuperMajority motion was executed. motion_result contains the call result
-		DispatchSuperMajority { motion_result: DispatchResult },
-		/// A Unanimous motion was executed. motion_result contains the call result
-		DispatchUnanimous { motion_result: DispatchResult },
+		/// Event documentation should end with an array that provides descriptive names for event
+		/// parameters. [something, who]
+		SomethingStored { something: u32, who: T::AccountId },
 	}
 
+	// Errors inform users that something went wrong.
 	#[pallet::error]
-	pub enum Error<T> {}
+	pub enum Error<T> {
+		/// Error names should be descriptive.
+		NoneValue,
+		/// Errors should have helpful documentation associated with them.
+		StorageOverflow,
+	}
 
+	// Dispatchable functions allows users to interact with the pallet and invoke state changes.
+	// These functions materialize as "extrinsics", which are often compared to transactions.
+	// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Ensures the simple majority is met and dispatches a call with `Root` origin.
-		///
-		/// # <weight>
-		/// - O(1).
-		/// - Limited storage reads.
-		/// - One DB write (event).
-		/// - Weight of derivative `call` execution + 10,000.
-		/// # </weight>
-		#[pallet::weight({
-			let dispatch_info = call.get_dispatch_info();
-			(T::WeightInfo::simple_majority().saturating_add(dispatch_info.weight), dispatch_info.class)
-		})]
+		/// An example dispatchable that takes a singles value as a parameter, writes the value to
+		/// storage and emits an event. This function must be dispatched by a signed extrinsic.
+		#[pallet::call_index(0)]
+		#[pallet::weight(Weight::default())]
+		pub fn do_something(origin: OriginFor<T>, something: u32) -> DispatchResult {
+			// Check that the extrinsic was signed and get the signer.
+			// This function will return an error if the extrinsic is not signed.
+			// https://docs.substrate.io/main-docs/build/origins/
+			let who = ensure_signed(origin)?;
+
+			// Update storage.
+			<Something<T>>::put(something);
+
+			// Emit an event.
+			Self::deposit_event(Event::SomethingStored { something, who });
+			// Return a successful DispatchResultWithPostInfo
+			Ok(())
+		}
+
+		/// An example dispatchable that may throw a custom error.
 		#[pallet::call_index(1)]
-		pub fn simple_majority(
-			origin: OriginFor<T>,
-			call: Box<<T as Config>::RuntimeCall>,
-		) -> DispatchResultWithPostInfo {
-			T::SimpleMajorityOrigin::ensure_origin(origin)?;
+		#[pallet::weight(Weight::default())]
+		pub fn cause_error(origin: OriginFor<T>) -> DispatchResult {
+			let _who = ensure_signed(origin)?;
 
-			let motion_result = Self::do_dispatch(*call);
-			Self::deposit_event(Event::DispatchSimpleMajority { motion_result });
-
-			Ok(Pays::No.into())
-		}
-
-		/// Ensures the super majority is met and dispatches a call with `Root` origin.
-		///
-		/// # <weight>
-		/// - O(1).
-		/// - Limited storage reads.
-		/// - One DB write (event).
-		/// - Weight of derivative `call` execution + 10,000.
-		/// # </weight>
-		#[pallet::weight({
-			let dispatch_info = call.get_dispatch_info();
-			(T::WeightInfo::super_majority().saturating_add(dispatch_info.weight), dispatch_info.class)
-		})]
-		#[pallet::call_index(2)]
-		pub fn super_majority(
-			origin: OriginFor<T>,
-			call: Box<<T as Config>::RuntimeCall>,
-		) -> DispatchResultWithPostInfo {
-			T::SuperMajorityOrigin::ensure_origin(origin)?;
-
-			let motion_result = Self::do_dispatch(*call);
-			Self::deposit_event(Event::DispatchSuperMajority { motion_result });
-
-			Ok(Pays::No.into())
-		}
-
-		/// Ensures unanimous voting is met and dispatches a call with `Root` origin.
-		///
-		/// # <weight>
-		/// - O(1).
-		/// - Limited storage reads.
-		/// - One DB write (event).
-		/// - Weight of derivative `call` execution + 10,000.
-		/// # </weight>
-		#[pallet::weight({
-			let dispatch_info = call.get_dispatch_info();
-			(T::WeightInfo::unanimous().saturating_add(dispatch_info.weight), dispatch_info.class)
-		})]
-		#[pallet::call_index(3)]
-		pub fn unanimous(
-			origin: OriginFor<T>,
-			call: Box<<T as Config>::RuntimeCall>,
-		) -> DispatchResultWithPostInfo {
-			T::UnanimousOrigin::ensure_origin(origin)?;
-
-			let motion_result = Self::do_dispatch(*call);
-			Self::deposit_event(Event::DispatchUnanimous { motion_result });
-
-			Ok(Pays::No.into())
-		}
-	}
-
-	impl<T: Config> Pallet<T> {
-		/// Helper to actually dispatch RuntimeCall.
-		///
-		/// Should only be called after the origin is ensured.
-		///
-		/// Returns the `DispatchResult` from the dispatched call.
-		fn do_dispatch(call: <T as Config>::RuntimeCall) -> DispatchResult {
-			let res = call.dispatch_bypass_filter(frame_system::RawOrigin::Root.into());
-			res.map(|_| ()).map_err(|e| e.error)
+			// Read a value from storage.
+			match <Something<T>>::get() {
+				// Return an error if the value has not been set.
+				None => Err(Error::<T>::NoneValue.into()),
+				Some(old) => {
+					// Increment the value read from storage; will error in the event of overflow.
+					let new = old.checked_add(1).ok_or(Error::<T>::StorageOverflow)?;
+					// Update the value in storage with the incremented result.
+					<Something<T>>::put(new);
+					Ok(())
+				},
+			}
 		}
 	}
 }

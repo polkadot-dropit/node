@@ -1,31 +1,26 @@
-use super::*;
-pub(crate) use crate as pallet_motion;
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64, Everything},
-	weights::Weight,
+use crate as pallet_distribution;
+use frame_support::derive_impl;
+use frame_support::traits::{
+	AsEnsureOriginWithArg, ConstU128, ConstU16, ConstU32, ConstU64, Everything,
 };
-use frame_system::limits::BlockWeights;
-use sp_core::{ConstU16, H256};
+use frame_system::{EnsureRoot, EnsureSigned};
+use sp_core::H256;
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage, Perbill,
+	BuildStorage,
 };
 
 type Block = frame_system::mocking::MockBlock<Test>;
-
-parameter_types! {
-	pub RuntimeBlockWeights: BlockWeights = BlockWeights::default();
-}
+type Balance = u128;
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
-	pub struct Test {
-		System: frame_system::{Pallet, Call, Event<T>},
-
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Council: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
-		Motion: pallet_motion,
+	pub enum Test
+	{
+		System: frame_system,
+		Balances: pallet_balances,
+		Assets: pallet_assets,
+		Distribution: pallet_distribution,
 	}
 );
 
@@ -47,7 +42,7 @@ impl frame_system::Config for Test {
 	type BlockHashCount = ConstU64<250>;
 	type Version = ();
 	type PalletInfo = PalletInfo;
-	type AccountData = pallet_balances::AccountData<u64>;
+	type AccountData = pallet_balances::AccountData<u128>;
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
@@ -59,9 +54,9 @@ impl frame_system::Config for Test {
 impl pallet_balances::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
-	type Balance = u64;
+	type Balance = u128;
 	type DustRemoval = ();
-	type ExistentialDeposit = ConstU64<1>;
+	type ExistentialDeposit = ConstU128<1>;
 	type AccountStore = System;
 	type ReserveIdentifier = [u8; 8];
 	type RuntimeHoldReason = RuntimeHoldReason;
@@ -72,52 +67,36 @@ impl pallet_balances::Config for Test {
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
-parameter_types! {
-	pub CouncilMotionDuration: u64 = 7;
-	pub const CouncilMaxProposals: u32 = 100;
-	pub const CouncilMaxMembers: u32 = 100;
-	pub MaxProposalWeight: Weight = Perbill::from_percent(50) * RuntimeBlockWeights::get().max_block;
+impl pallet_assets::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type Balance = Balance;
+	type AssetId = u32;
+	type AssetIdParameter = parity_scale_codec::Compact<u32>;
+	type Currency = Balances;
+	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<Self::AccountId>>;
+	type ForceOrigin = EnsureRoot<Self::AccountId>;
+	type AssetDeposit = ConstU128<100>;
+	type AssetAccountDeposit = ConstU128<1>;
+	type MetadataDepositBase = ConstU128<10>;
+	type MetadataDepositPerByte = ConstU128<1>;
+	type ApprovalDeposit = ConstU128<1>;
+	type StringLimit = ConstU32<50>;
+	type Freezer = ();
+	type Extra = ();
+	type CallbackHandle = ();
+	type WeightInfo = ();
+	type RemoveItemsLimit = ConstU32<1000>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
-pub type CouncilCollective = pallet_collective::Instance1;
-impl pallet_collective::Config<CouncilCollective> for Test {
-	type RuntimeOrigin = RuntimeOrigin;
-	type Proposal = RuntimeCall;
+impl pallet_distribution::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type MotionDuration = CouncilMotionDuration;
-	type MaxProposals = CouncilMaxProposals;
-	type MaxMembers = CouncilMaxMembers;
-	type DefaultVote = pallet_collective::PrimeDefaultVote;
-	type WeightInfo = ();
-	type SetMembersOrigin = frame_system::EnsureRoot<u64>;
-	type MaxProposalWeight = MaxProposalWeight;
-}
-
-impl pallet_motion::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeCall = RuntimeCall;
-	type SimpleMajorityOrigin =
-		pallet_collective::EnsureProportionAtLeast<u64, CouncilCollective, 1, 2>;
-	type SuperMajorityOrigin =
-		pallet_collective::EnsureProportionAtLeast<u64, CouncilCollective, 2, 3>;
-	type UnanimousOrigin = pallet_collective::EnsureProportionAtLeast<u64, CouncilCollective, 1, 1>;
-	type WeightInfo = ();
+	type NativeBalance = Balances;
+	type Fungibles = Assets;
 }
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig {
-		balances: pallet_balances::GenesisConfig::<Test> {
-			balances: vec![(1, 10), (2, 20), (3, 30), (4, 40), (5, 50)],
-		},
-		council: pallet_collective::GenesisConfig {
-			members: vec![1, 2, 3, 4],
-			phantom: Default::default(),
-		},
-	}
-	.build_storage()
-	.unwrap()
-	.into();
-	ext.execute_with(|| System::set_block_number(1));
-	ext
+	frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
 }
