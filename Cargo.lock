@@ -6149,6 +6149,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-distribution"
+version = "4.0.0-dev"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-balances",
+ "pallet-collective",
+ "pallet-membership",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-election-provider-multi-phase"
 version = "30.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
