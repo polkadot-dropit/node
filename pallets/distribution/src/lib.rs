@@ -98,12 +98,15 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		DistributionCreated { id: DistributionId },
+		DistributionAdded { id: DistributionId, recipient: T::AccountId, amount: AssetBalanceOf<T> },
 	}
 
 	#[pallet::error]
 	pub enum Error<T> {
 		// The provided distribution id does not exist.
 		DistributionIdDoesNotExist,
+		// The call is only accessible by the distribution creator.
+		CreatorOnly,
 	}
 
 	// Dispatchable functions allows users to interact with the pallet and invoke state changes.
@@ -144,6 +147,51 @@ pub mod pallet {
 			let Info { asset_id, stash_account, .. } =
 				DistributionInfo::<T>::get(id).ok_or(Error::<T>::DistributionIdDoesNotExist)?;
 			T::Fungibles::transfer(asset_id, &from, &stash_account, amount, Preservation::Protect)?;
+
+			Ok(())
+		}
+
+		/// This adds a distribution entry for a single account and amount for `id`.
+		/// It is possible that this overwrites an existing entry, so the distribution `creator`
+		/// should take special care to remove duplicates before calling this function.
+		#[pallet::call_index(2)]
+		#[pallet::weight(Weight::default())]
+		pub fn add_distribution(
+			origin: OriginFor<T>,
+			id: DistributionId,
+			recipient: T::AccountId,
+			amount: AssetBalanceOf<T>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let Info { creator, .. } =
+				DistributionInfo::<T>::get(id).ok_or(Error::<T>::DistributionIdDoesNotExist)?;
+
+			ensure!(who == creator, Error::<T>::CreatorOnly);
+			AssetDistribution::<T>::insert(id, recipient.clone(), amount);
+			Self::deposit_event(Event::<T>::DistributionAdded { id, recipient, amount });
+
+			Ok(())
+		}
+
+		/// This adds multiple distribution entries for a accounts and amounts for `id`.
+		/// It is possible that this overwrites an existing entries, so the distribution `creator`
+		/// should take special care to remove duplicates before calling this function.
+		#[pallet::call_index(3)]
+		#[pallet::weight(Weight::default())]
+		pub fn add_distributions(
+			origin: OriginFor<T>,
+			id: DistributionId,
+			recipients: Vec<(T::AccountId, AssetBalanceOf<T>)>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let Info { creator, .. } =
+				DistributionInfo::<T>::get(id).ok_or(Error::<T>::DistributionIdDoesNotExist)?;
+
+			ensure!(who == creator, Error::<T>::CreatorOnly);
+			for (recipient, amount) in recipients {
+				AssetDistribution::<T>::insert(id, recipient.clone(), amount);
+				Self::deposit_event(Event::<T>::DistributionAdded { id, recipient, amount });
+			}
 
 			Ok(())
 		}
