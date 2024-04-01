@@ -36,7 +36,7 @@ pub mod pallet {
 	use super::*;
 	use frame_support::{
 		pallet_prelude::*,
-		sp_runtime::traits::{AccountIdConversion, CheckedAdd, CheckedSub, Zero},
+		sp_runtime::traits::{AccountIdConversion, CheckedAdd, CheckedSub, One, Saturating, Zero},
 		sp_runtime::{ArithmeticError, Perbill},
 		traits::fungible::Mutate as _,
 		traits::fungibles::{Inspect as _, Mutate as _},
@@ -68,6 +68,20 @@ pub mod pallet {
 			+ fungibles::Create<Self::AccountId>;
 	}
 
+	/// We make the crowdfund a simple state machine to better ensure that all checks are done
+	/// when transitioning between phases, and that all calls are gated by checking the right phase.
+	#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq, Copy, Clone, Debug)]
+	pub enum CrowdfundPhase {
+		// The crowdfund is currently raising funds.
+		Raising,
+		// The crowdfund is currently distributing tokens to users.
+		Distributing,
+		// The crowdfund has ended successfully.
+		Ended,
+		// The crowdfund has failed to raise enough funds.
+		Failed,
+	}
+
 	#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
 	#[scale_info(skip_type_params(T))]
 	pub struct DistributionInfo<T: Config> {
@@ -81,6 +95,7 @@ pub mod pallet {
 	#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
 	#[scale_info(skip_type_params(T))]
 	pub struct CrowdfundInfo<T: Config> {
+		pub phase: CrowdfundPhase,
 		pub fund_min: BalanceOf<T>,
 		pub fund_max: Option<BalanceOf<T>>,
 		pub min_contribution: BalanceOf<T>,
@@ -150,28 +165,38 @@ pub mod pallet {
 			min_contribution: BalanceOf<T>,
 			max_contribution: Option<BalanceOf<T>>,
 		},
+		NewCrowdfundPhase {
+			id: DistributionId,
+			new_phase: CrowdfundPhase,
+		},
 	}
 
 	#[pallet::error]
 	pub enum Error<T> {
-		// The provided distribution id does not exist.
+		/// The provided distribution id does not exist.
 		DistributionIdDoesNotExist,
-		// The distribution does not exist.
+		/// The distribution does not exist.
 		DistributionDoesNotExist,
-		// Zero value is not allowed.
+		/// Zero value is not allowed.
 		ZeroNotAllowed,
-		// The call is only accessible by the distribution creator.
+		/// The call is only accessible by the distribution creator.
 		CreatorOnly,
-		// The distribution is not crowdfunded.
+		/// The distribution is crowdfunded.
+		Crowdfunded,
+		/// The distribution is not crowdfunded.
 		NotCrowdfunded,
-		// Contribution is larger than the maximum allowed.
+		/// Contribution is larger than the maximum allowed.
 		ContributionTooBig,
-		// Contribution is smaller than the minimum allowed.
+		/// Contribution is smaller than the minimum allowed.
 		ContributionTooSmall,
-		// Contribution limit for the crowdfund has been reached.
+		/// Contribution limit for the crowdfund has been reached.
 		ContributionLimitReached,
-		// Contribution period has ended.
+		/// Contribution period has ended.
 		ContributionPeriodEnded,
+		/// Contribution period is still ongoing.
+		ContributionPeriodOngoing,
+		/// Wrong crowdfund phase.
+		WrongPhase,
 	}
 
 	// Dispatchable functions allows users to interact with the pallet and invoke state changes.
@@ -239,9 +264,10 @@ pub mod pallet {
 			amount: AssetBalanceOf<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let DistributionInfo { creator, .. } =
+			let DistributionInfo { creator, crowdfunded, .. } =
 				DistributionInfos::<T>::get(id).ok_or(Error::<T>::DistributionIdDoesNotExist)?;
 
+			ensure!(!crowdfunded, Error::<T>::Crowdfunded);
 			ensure!(who == creator, Error::<T>::CreatorOnly);
 			AssetDistribution::<T>::insert(id, recipient.clone(), amount);
 			Self::deposit_event(Event::<T>::DistributionAdded { id, recipient, amount });
@@ -261,9 +287,10 @@ pub mod pallet {
 			recipients: Vec<(T::AccountId, AssetBalanceOf<T>)>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let DistributionInfo { creator, .. } =
+			let DistributionInfo { creator, crowdfunded, .. } =
 				DistributionInfos::<T>::get(id).ok_or(Error::<T>::DistributionIdDoesNotExist)?;
 
+			ensure!(!crowdfunded, Error::<T>::Crowdfunded);
 			ensure!(who == creator, Error::<T>::CreatorOnly);
 			for (recipient, amount) in recipients {
 				AssetDistribution::<T>::insert(id, recipient.clone(), amount);
@@ -332,6 +359,7 @@ pub mod pallet {
 			ensure!(who == creator, Error::<T>::CreatorOnly);
 
 			let crowdfund_info = CrowdfundInfo::<T> {
+				phase: CrowdfundPhase::Raising,
 				fund_min,
 				fund_max,
 				min_contribution,
@@ -354,8 +382,70 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// This extrinsic allows anyone to permissionlessly contribute to a crowdfund.
+		/// This extrinsic moves a crowdfund to the next phase. This ensures that each phase change is accurately checked,
+		/// and subsequent crowdfund extrinsics will execute only at the right phase.
+		/// Anyone can permissionlessly call this function.
 		#[pallet::call_index(6)]
+		#[pallet::weight(Weight::default())]
+		pub fn crowdfund_next_phase(origin: OriginFor<T>, id: DistributionId) -> DispatchResult {
+			// Anyone can permissionlessly call this function.
+			let _ = ensure_signed(origin)?;
+
+			let mut crowdfund_info =
+				CrowdfundInfos::<T>::get(id).ok_or(Error::<T>::NotCrowdfunded)?;
+
+			let new_phase = match crowdfund_info.phase {
+				// Transition from raising funds to distributing funds or failed, based on the amount contributed before `end_block`.
+				CrowdfundPhase::Raising => {
+					// TODO: Write this whole block more ergonomically.
+					let mut contributions_full = false;
+
+					// First we can check if the crowdfund can end early because it cannot accept anymore contributions.
+					if let Some(max_contribution) = crowdfund_info.max_contribution {
+						let maybe_total_plus_one = crowdfund_info
+							.total_contributed
+							.checked_add(&crowdfund_info.min_contribution);
+						// Contributions are full if an additional minimum contribution overflows, or is greater than the `max_contribution`.
+						contributions_full = maybe_total_plus_one
+							.map_or(true, |total_plus_one| total_plus_one > max_contribution);
+					}
+
+					// If the contributions are full, we can start distributing early.
+					if contributions_full {
+						CrowdfundPhase::Distributing
+					} else {
+						// Then we check if the crowdfund raising period is over.
+						let last_relay_block_number =
+							cumulus_pallet_parachain_system::Pallet::<T>::last_relay_block_number();
+						ensure!(
+							last_relay_block_number > crowdfund_info.end_block,
+							Error::<T>::ContributionPeriodOngoing
+						);
+
+						// If crowdfund didn't raise enough funds, it failed. Otherwise, we can start distributing.
+						if crowdfund_info.total_contributed >= crowdfund_info.fund_min {
+							CrowdfundPhase::Failed
+						} else {
+							CrowdfundPhase::Distributing
+						}
+					}
+				},
+				_ => crowdfund_info.phase,
+			};
+
+			// If needed, update and emit event.
+			if crowdfund_info.phase != new_phase {
+				crowdfund_info.phase = new_phase;
+				CrowdfundInfos::<T>::insert(id, crowdfund_info);
+				Self::deposit_event(Event::<T>::NewCrowdfundPhase { id, new_phase });
+			}
+
+			Ok(())
+		}
+
+		/// This extrinsic allows anyone to permissionlessly contribute to a crowdfund.
+		/// This extrinsic is only successful when crowdfund is in `Raising` phase.
+		#[pallet::call_index(7)]
 		#[pallet::weight(Weight::default())]
 		pub fn contribute_crowdfund(
 			origin: OriginFor<T>,
@@ -367,8 +457,7 @@ pub mod pallet {
 			let mut crowdfund_info =
 				CrowdfundInfos::<T>::get(id).ok_or(Error::<T>::NotCrowdfunded)?;
 
-			let DistributionInfo { stash_account, .. } =
-				DistributionInfos::<T>::get(id).ok_or(Error::<T>::DistributionIdDoesNotExist)?;
+			ensure!(crowdfund_info.phase == CrowdfundPhase::Raising, Error::<T>::WrongPhase);
 
 			// Check Contribution Amount
 			ensure!(
@@ -394,6 +483,9 @@ pub mod pallet {
 				Error::<T>::ContributionPeriodEnded
 			);
 
+			let DistributionInfo { stash_account, .. } =
+				DistributionInfos::<T>::get(id).ok_or(Error::<T>::DistributionIdDoesNotExist)?;
+
 			// Transfer funds to stash account and record contribution.
 			T::NativeBalance::transfer(&who, &stash_account, amount, Preservation::Preserve)?;
 			CrowdfundContributions::<T>::insert(&id, &who, amount);
@@ -406,7 +498,7 @@ pub mod pallet {
 		}
 
 		/// This extrinsic allows anyone to permissionlessly claim the portion of tokens allocated to a crowdfund contributor.
-		#[pallet::call_index(7)]
+		#[pallet::call_index(8)]
 		#[pallet::weight(Weight::default())]
 		pub fn claim_crowdfund_distribution(
 			origin: OriginFor<T>,
@@ -422,6 +514,14 @@ pub mod pallet {
 
 			let mut crowdfund_info =
 				CrowdfundInfos::<T>::get(id).ok_or(Error::<T>::NotCrowdfunded)?;
+
+			// Check that the crowdfund is past the contribution period.
+			let last_relay_block_number =
+				cumulus_pallet_parachain_system::Pallet::<T>::last_relay_block_number();
+			ensure!(
+				last_relay_block_number > crowdfund_info.end_block,
+				Error::<T>::ContributionPeriodOngoing
+			);
 
 			let DistributionInfo { asset_id, stash_account, .. } =
 				DistributionInfos::<T>::get(id).ok_or(Error::<T>::DistributionIdDoesNotExist)?;
@@ -453,6 +553,15 @@ pub mod pallet {
 			crowdfund_info.total_claimed = new_total_claimed;
 			CrowdfundInfos::<T>::insert(id, crowdfund_info);
 
+			Ok(())
+		}
+
+		/// This extrinsic allows the crowdfund creator to withdraw their raised funds.
+		/// This function only executes successfully after all contributors have been distributed their tokens.
+		#[pallet::call_index(9)]
+		#[pallet::weight(Weight::default())]
+		pub fn claim_crowdfund_raise(origin: OriginFor<T>, id: DistributionId) -> DispatchResult {
+			let who = ensure_signed(origin)?;
 			Ok(())
 		}
 	}
