@@ -36,7 +36,7 @@ pub mod pallet {
 	use super::*;
 	use frame_support::{
 		pallet_prelude::*,
-		sp_runtime::traits::AccountIdConversion,
+		sp_runtime::traits::{AccountIdConversion, Zero},
 		sp_runtime::ArithmeticError,
 		traits::fungibles::Mutate,
 		traits::{fungible, fungibles, tokens::Preservation},
@@ -68,20 +68,36 @@ pub mod pallet {
 
 	#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
 	#[scale_info(skip_type_params(T))]
-	pub struct Info<T: Config> {
+	pub struct DistributionInfo<T: Config> {
 		pub creator: T::AccountId,
 		pub asset_id: AssetIdOf<T>,
 		pub stash_account: T::AccountId,
+		pub crowdfunded: bool,
 		pub root_hash: Option<T::Hash>,
+	}
+
+	#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
+	#[scale_info(skip_type_params(T))]
+	pub struct CrowdfundInfo<T: Config> {
+		pub fund_min: Option<BalanceOf<T>>,
+		pub fund_max: Option<BalanceOf<T>>,
+		pub min_contribution: Option<BalanceOf<T>>,
+		pub max_contribution: Option<BalanceOf<T>>,
+		pub total_contributed: BalanceOf<T>,
 	}
 
 	// `NextDistributionId` keeps track of the next ID available when starting a distribution.
 	#[pallet::storage]
 	pub type NextDistributionId<T> = StorageValue<_, DistributionId, ValueQuery>;
 
-	// `DistributionInfo` storage maps from a `DistributionId` to the `Info` about that distribution.
+	// `DistributionInfos` storage maps from a `DistributionId` to the `Info` about that distribution.
 	#[pallet::storage]
-	pub type DistributionInfo<T: Config> = StorageMap<_, Blake2_128Concat, DistributionId, Info<T>>;
+	pub type DistributionInfos<T: Config> = StorageMap<_, Blake2_128Concat, DistributionId, DistributionInfo<T>>;
+
+	// `CrowdfundInfos` storage maps from a `DistributionId` with crowdfunded enabled, to the configuration about the crowdfund.
+	#[pallet::storage]
+	pub type CrowdfundInfos<T: Config> = StorageMap<_, Blake2_128Concat, DistributionId, CrowdfundInfo<T>>;
+
 
 	// `AssetDistribution` storage maps from a `DistributionId` and `AccountId` to the amount of
 	#[pallet::storage]
@@ -99,6 +115,7 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		DistributionCreated {
 			id: DistributionId,
+			crowdfunded: bool,
 		},
 		DistributionAdded {
 			id: DistributionId,
@@ -110,6 +127,13 @@ pub mod pallet {
 			recipient: T::AccountId,
 			amount: AssetBalanceOf<T>,
 		},
+		CrowdfundConfigured {
+			id: DistributionId,
+			fund_min: Option<BalanceOf<T>>,
+			fund_max: Option<BalanceOf<T>>,
+			min_contribution: Option<BalanceOf<T>>,
+			max_contribution: Option<BalanceOf<T>>,
+		},
 	}
 
 	#[pallet::error]
@@ -120,6 +144,8 @@ pub mod pallet {
 		DistributionDoesNotExist,
 		// The call is only accessible by the distribution creator.
 		CreatorOnly,
+		// The distribution is not crowdfunded.
+		NotCrowdfunded,
 	}
 
 	// Dispatchable functions allows users to interact with the pallet and invoke state changes.
@@ -131,18 +157,18 @@ pub mod pallet {
 		/// This extrinsic establishes the `DistributionId` for this distribution and the respective `stash_account`.
 		#[pallet::call_index(0)]
 		#[pallet::weight(Weight::default())]
-		pub fn create_distribution(origin: OriginFor<T>, asset_id: AssetIdOf<T>) -> DispatchResult {
+		pub fn create_distribution(origin: OriginFor<T>, asset_id: AssetIdOf<T>, crowdfunded: bool) -> DispatchResult {
 			let creator = ensure_signed(origin)?;
 			let id = NextDistributionId::<T>::get();
 			let next_id = id.checked_add(1).ok_or(ArithmeticError::Overflow)?;
 
 			let stash_account = Self::stash_account(id);
-			let info = Info::<T> { creator, asset_id, stash_account, root_hash: None };
+			let distribution_info = DistributionInfo::<T> { creator, asset_id, stash_account, crowdfunded, root_hash: None };
 
 			NextDistributionId::<T>::put(next_id);
-			DistributionInfo::<T>::insert(id, info);
+			DistributionInfos::<T>::insert(id, distribution_info);
 
-			Self::deposit_event(Event::<T>::DistributionCreated { id });
+			Self::deposit_event(Event::<T>::DistributionCreated { id, crowdfunded });
 
 			Ok(())
 		}
@@ -157,8 +183,8 @@ pub mod pallet {
 			amount: AssetBalanceOf<T>,
 		) -> DispatchResult {
 			let from = ensure_signed(origin)?;
-			let Info { asset_id, stash_account, .. } =
-				DistributionInfo::<T>::get(id).ok_or(Error::<T>::DistributionIdDoesNotExist)?;
+			let DistributionInfo { asset_id, stash_account, .. } =
+				DistributionInfos::<T>::get(id).ok_or(Error::<T>::DistributionIdDoesNotExist)?;
 			T::Fungibles::transfer(asset_id, &from, &stash_account, amount, Preservation::Protect)?;
 
 			Ok(())
@@ -176,8 +202,8 @@ pub mod pallet {
 			amount: AssetBalanceOf<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let Info { creator, .. } =
-				DistributionInfo::<T>::get(id).ok_or(Error::<T>::DistributionIdDoesNotExist)?;
+			let DistributionInfo { creator, .. } =
+				DistributionInfos::<T>::get(id).ok_or(Error::<T>::DistributionIdDoesNotExist)?;
 
 			ensure!(who == creator, Error::<T>::CreatorOnly);
 			AssetDistribution::<T>::insert(id, recipient.clone(), amount);
@@ -197,8 +223,8 @@ pub mod pallet {
 			recipients: Vec<(T::AccountId, AssetBalanceOf<T>)>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let Info { creator, .. } =
-				DistributionInfo::<T>::get(id).ok_or(Error::<T>::DistributionIdDoesNotExist)?;
+			let DistributionInfo { creator, .. } =
+				DistributionInfos::<T>::get(id).ok_or(Error::<T>::DistributionIdDoesNotExist)?;
 
 			ensure!(who == creator, Error::<T>::CreatorOnly);
 			for (recipient, amount) in recipients {
@@ -220,8 +246,8 @@ pub mod pallet {
 			recipient: T::AccountId,
 		) -> DispatchResult {
 			let _ = ensure_signed(origin)?;
-			let Info { asset_id, stash_account, .. } =
-				DistributionInfo::<T>::get(id).ok_or(Error::<T>::DistributionIdDoesNotExist)?;
+			let DistributionInfo { asset_id, stash_account, .. } =
+				DistributionInfos::<T>::get(id).ok_or(Error::<T>::DistributionIdDoesNotExist)?;
 
 			let amount = AssetDistribution::<T>::take(id, &recipient)
 				.ok_or(Error::<T>::DistributionDoesNotExist)?;
@@ -234,6 +260,35 @@ pub mod pallet {
 			)?;
 
 			Self::deposit_event(Event::<T>::DistributionClaimed { id, recipient, amount });
+
+			Ok(())
+		}
+
+		/// This extrinsic creates a crowdfund distribution with settings defined by the `creator`.
+		#[pallet::call_index(5)]
+		#[pallet::weight(Weight::default())]
+		pub fn configure_crowdfund(
+			origin: OriginFor<T>,
+			id: DistributionId,
+			fund_min: Option<BalanceOf<T>>,
+			fund_max: Option<BalanceOf<T>>,
+			min_contribution: Option<BalanceOf<T>>,
+			max_contribution: Option<BalanceOf<T>>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let DistributionInfo { creator, crowdfunded, .. } =
+				DistributionInfos::<T>::get(id).ok_or(Error::<T>::DistributionIdDoesNotExist)?;
+
+			ensure!(crowdfunded, Error::<T>::NotCrowdfunded);
+			ensure!(who == creator, Error::<T>::CreatorOnly);
+
+			let crowdfund_info = CrowdfundInfo::<T> {
+				fund_min, fund_max, min_contribution, max_contribution, total_contributed: BalanceOf::<T>::zero(),
+			};
+
+			CrowdfundInfos::<T>::insert(id, crowdfund_info);
+
+			Self::deposit_event(Event::<T>::CrowdfundConfigured { id, fund_min, fund_max, min_contribution, max_contribution });
 
 			Ok(())
 		}
