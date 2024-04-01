@@ -36,9 +36,9 @@ pub mod pallet {
 	use super::*;
 	use frame_support::{
 		pallet_prelude::*,
-		sp_runtime::traits::{AccountIdConversion, CheckedAdd, CheckedSub, One, Saturating, Zero},
+		sp_runtime::traits::{AccountIdConversion, CheckedAdd, CheckedSub, Zero},
 		sp_runtime::{ArithmeticError, Perbill},
-		traits::fungible::Mutate as _,
+		traits::fungible::{Inspect as _, Mutate as _},
 		traits::fungibles::{Inspect as _, Mutate as _},
 		traits::{fungible, fungibles, tokens::Preservation},
 	};
@@ -77,7 +77,7 @@ pub mod pallet {
 		// The crowdfund is currently distributing tokens to users.
 		Distributing,
 		// The crowdfund has ended successfully.
-		Ended,
+		Success,
 		// The crowdfund has failed to raise enough funds.
 		Failed,
 	}
@@ -197,6 +197,8 @@ pub mod pallet {
 		ContributionPeriodOngoing,
 		/// Wrong crowdfund phase.
 		WrongPhase,
+		/// Crowdfund phase cannot be changed.
+		NoPhaseChange,
 	}
 
 	// Dispatchable functions allows users to interact with the pallet and invoke state changes.
@@ -430,7 +432,22 @@ pub mod pallet {
 						}
 					}
 				},
-				_ => crowdfund_info.phase,
+				CrowdfundPhase::Distributing => {
+					// Simply check that all contributions have been claimed.
+					if crowdfund_info.total_contributed <= crowdfund_info.total_claimed {
+						CrowdfundPhase::Success
+					} else {
+						CrowdfundPhase::Distributing
+					}
+				},
+				CrowdfundPhase::Failed => {
+					// Nothing to change.
+					CrowdfundPhase::Failed
+				},
+				CrowdfundPhase::Success => {
+					// Nothing to change.
+					CrowdfundPhase::Success
+				},
 			};
 
 			// If needed, update and emit event.
@@ -438,9 +455,10 @@ pub mod pallet {
 				crowdfund_info.phase = new_phase;
 				CrowdfundInfos::<T>::insert(id, crowdfund_info);
 				Self::deposit_event(Event::<T>::NewCrowdfundPhase { id, new_phase });
+				Ok(())
+			} else {
+				Err(Error::<T>::NoPhaseChange.into())
 			}
-
-			Ok(())
 		}
 
 		/// This extrinsic allows anyone to permissionlessly contribute to a crowdfund.
@@ -498,6 +516,7 @@ pub mod pallet {
 		}
 
 		/// This extrinsic allows anyone to permissionlessly claim the portion of tokens allocated to a crowdfund contributor.
+		/// This extrinsic is only successful when crowdloan is in the `Distributing` phase.
 		#[pallet::call_index(8)]
 		#[pallet::weight(Weight::default())]
 		pub fn claim_crowdfund_distribution(
@@ -514,6 +533,8 @@ pub mod pallet {
 
 			let mut crowdfund_info =
 				CrowdfundInfos::<T>::get(id).ok_or(Error::<T>::NotCrowdfunded)?;
+
+			ensure!(crowdfund_info.phase == CrowdfundPhase::Distributing, Error::<T>::WrongPhase);
 
 			// Check that the crowdfund is past the contribution period.
 			let last_relay_block_number =
@@ -540,28 +561,46 @@ pub mod pallet {
 			let claim_percentage = Perbill::from_rational(contribution_amount, claimable);
 			// This calculates the total amount of tokens that should be sent. A percentage of the total balance.
 			let token_balance = T::Fungibles::total_balance(asset_id.clone(), &stash_account);
-			let claimable_tokens = claim_percentage * token_balance;
+			let amount = claim_percentage * token_balance;
 
 			// Transfer the funds and update all storage.
 			T::Fungibles::transfer(
 				asset_id,
 				&stash_account,
 				&recipient,
-				claimable_tokens,
+				amount,
 				Preservation::Expendable,
 			)?;
 			crowdfund_info.total_claimed = new_total_claimed;
 			CrowdfundInfos::<T>::insert(id, crowdfund_info);
 
+			Self::deposit_event(Event::<T>::DistributionClaimed { id, recipient, amount });
+
 			Ok(())
 		}
 
 		/// This extrinsic allows the crowdfund creator to withdraw their raised funds.
-		/// This function only executes successfully after all contributors have been distributed their tokens.
+		/// This extrinsic is only successful if the crowdloan is in the `Success` phase.
 		#[pallet::call_index(9)]
 		#[pallet::weight(Weight::default())]
 		pub fn claim_crowdfund_raise(origin: OriginFor<T>, id: DistributionId) -> DispatchResult {
-			let who = ensure_signed(origin)?;
+			let _ = ensure_signed(origin)?;
+
+			let crowdfund_info = CrowdfundInfos::<T>::get(id).ok_or(Error::<T>::NotCrowdfunded)?;
+
+			ensure!(crowdfund_info.phase == CrowdfundPhase::Success, Error::<T>::WrongPhase);
+
+			let DistributionInfo { stash_account, creator, .. } =
+				DistributionInfos::<T>::get(id).ok_or(Error::<T>::DistributionIdDoesNotExist)?;
+
+			let total_balance = T::NativeBalance::total_balance(&stash_account);
+			T::NativeBalance::transfer(
+				&stash_account,
+				&creator,
+				total_balance,
+				Preservation::Expendable,
+			)?;
+
 			Ok(())
 		}
 	}
