@@ -763,7 +763,7 @@ impl pallet_treasury::Config for Runtime {
 	type BalanceConverter = UnityAssetBalanceConversion;
 	type PayoutPeriod = PayoutSpendPeriod;
 	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = runtime_common::impls::benchmarks::TreasuryArguments;
+	type BenchmarkHelper = common::benchmarks::TreasuryArguments;
 }
 
 impl pallet_author_reward_dest::Config for Runtime {
@@ -822,6 +822,7 @@ mod benches {
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
 		[pallet_motion, Motion]
 		[pallet_safe_mode, SafeMode]
+		[pallet_treasury, Treasury]
 		[pallet_tx_pause, TxPause]
 	);
 }

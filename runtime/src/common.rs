@@ -79,3 +79,19 @@ impl OnUnbalanced<NegativeImbalance<Runtime>> for DealWithFees {
 		}
 	}
 }
+
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarks {
+	use sp_runtime::AccountId32;
+
+	/// Provide factory methods for the benchmarks of treasury.
+	pub struct TreasuryArguments;
+	impl pallet_treasury::ArgumentsFactory<(), AccountId32> for TreasuryArguments {
+		fn create_asset_kind(_seed: u32) -> () {
+			()
+		}
+		fn create_beneficiary(seed: [u8; 32]) -> AccountId32 {
+			AccountId32::from(seed)
+		}
+	}
+}
