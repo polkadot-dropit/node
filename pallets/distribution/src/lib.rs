@@ -580,10 +580,12 @@ pub mod pallet {
 		}
 
 		/// This extrinsic allows the crowdfund creator to withdraw their raised funds.
+		/// Anyone can permissionlessly call this function.
 		/// This extrinsic is only successful if the crowdloan is in the `Success` phase.
 		#[pallet::call_index(9)]
 		#[pallet::weight(Weight::default())]
 		pub fn claim_crowdfund_raise(origin: OriginFor<T>, id: DistributionId) -> DispatchResult {
+			// Anyone can permissionlessly call this function.
 			let _ = ensure_signed(origin)?;
 
 			let crowdfund_info = CrowdfundInfos::<T>::get(id).ok_or(Error::<T>::NotCrowdfunded)?;
@@ -598,6 +600,40 @@ pub mod pallet {
 				&stash_account,
 				&creator,
 				total_balance,
+				Preservation::Expendable,
+			)?;
+
+			Ok(())
+		}
+
+		/// This extrinsic allows the crowdfund contributors to withdraw their raised funds when the crowdloan fails to raise enough funds.
+		/// Anyone can permissionlessly call this function.
+		/// This extrinsic is only successful if the crowdloan is in the `Failed` phase.
+		#[pallet::call_index(10)]
+		#[pallet::weight(Weight::default())]
+		pub fn return_raised_funds(
+			origin: OriginFor<T>,
+			id: DistributionId,
+			recipient: T::AccountId,
+		) -> DispatchResult {
+			// Anyone can permissionlessly call this function.
+			let _ = ensure_signed(origin)?;
+
+			let crowdfund_info = CrowdfundInfos::<T>::get(id).ok_or(Error::<T>::NotCrowdfunded)?;
+
+			ensure!(crowdfund_info.phase == CrowdfundPhase::Failed, Error::<T>::WrongPhase);
+
+			// Remove contribution record at the same time as reading the info.
+			let contribution_amount = CrowdfundContributions::<T>::take(id, &recipient)
+				.ok_or(Error::<T>::DistributionDoesNotExist)?;
+
+			let DistributionInfo { stash_account, .. } =
+				DistributionInfos::<T>::get(id).ok_or(Error::<T>::DistributionIdDoesNotExist)?;
+
+			T::NativeBalance::transfer(
+				&stash_account,
+				&recipient,
+				contribution_amount,
 				Preservation::Expendable,
 			)?;
 
