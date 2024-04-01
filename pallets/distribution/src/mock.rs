@@ -1,4 +1,6 @@
 use crate as pallet_distribution;
+use cumulus_pallet_parachain_system::AnyRelayNumber;
+use cumulus_pallet_parachain_system::ParachainSetCode;
 use frame_support::derive_impl;
 use frame_support::traits::{
 	AsEnsureOriginWithArg, ConstU128, ConstU16, ConstU32, ConstU64, Everything,
@@ -18,6 +20,7 @@ frame_support::construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
+		ParachainSystem: cumulus_pallet_parachain_system,
 		Balances: pallet_balances,
 		Assets: pallet_assets,
 		Distribution: pallet_distribution,
@@ -48,8 +51,22 @@ impl frame_system::Config for Test {
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
 	type SS58Prefix = ConstU16<42>;
-	type OnSetCode = ();
+	type OnSetCode = ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+}
+
+impl cumulus_pallet_parachain_system::Config for Test {
+	type WeightInfo = ();
+	type RuntimeEvent = RuntimeEvent;
+	type OnSystemEvent = ();
+	type SelfParaId = ();
+	type OutboundXcmpMessageSource = ();
+	// Ignore all DMP messages by enqueueing them into `()`:
+	type DmpQueue = frame_support::traits::EnqueueWithOrigin<(), sp_core::ConstU8<0>>;
+	type ReservedDmpWeight = ();
+	type XcmpMessageHandler = ();
+	type ReservedXcmpWeight = ();
+	type CheckAssociatedRelayNumber = AnyRelayNumber;
 }
 
 impl pallet_balances::Config for Test {

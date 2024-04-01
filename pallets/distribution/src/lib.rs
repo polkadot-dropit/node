@@ -42,13 +42,14 @@ pub mod pallet {
 		traits::{fungible, fungibles, tokens::Preservation},
 	};
 	use frame_system::pallet_prelude::*;
+	use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config + cumulus_pallet_parachain_system::Config {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -84,6 +85,7 @@ pub mod pallet {
 		pub min_contribution: Option<BalanceOf<T>>,
 		pub max_contribution: Option<BalanceOf<T>>,
 		pub total_contributed: BalanceOf<T>,
+		pub end_block: RelayChainBlockNumber,
 	}
 
 	// `NextDistributionId` keeps track of the next ID available when starting a distribution.
@@ -92,12 +94,13 @@ pub mod pallet {
 
 	// `DistributionInfos` storage maps from a `DistributionId` to the `Info` about that distribution.
 	#[pallet::storage]
-	pub type DistributionInfos<T: Config> = StorageMap<_, Blake2_128Concat, DistributionId, DistributionInfo<T>>;
+	pub type DistributionInfos<T: Config> =
+		StorageMap<_, Blake2_128Concat, DistributionId, DistributionInfo<T>>;
 
 	// `CrowdfundInfos` storage maps from a `DistributionId` with crowdfunded enabled, to the configuration about the crowdfund.
 	#[pallet::storage]
-	pub type CrowdfundInfos<T: Config> = StorageMap<_, Blake2_128Concat, DistributionId, CrowdfundInfo<T>>;
-
+	pub type CrowdfundInfos<T: Config> =
+		StorageMap<_, Blake2_128Concat, DistributionId, CrowdfundInfo<T>>;
 
 	// `AssetDistribution` storage maps from a `DistributionId` and `AccountId` to the amount of
 	#[pallet::storage]
@@ -157,13 +160,23 @@ pub mod pallet {
 		/// This extrinsic establishes the `DistributionId` for this distribution and the respective `stash_account`.
 		#[pallet::call_index(0)]
 		#[pallet::weight(Weight::default())]
-		pub fn create_distribution(origin: OriginFor<T>, asset_id: AssetIdOf<T>, crowdfunded: bool) -> DispatchResult {
+		pub fn create_distribution(
+			origin: OriginFor<T>,
+			asset_id: AssetIdOf<T>,
+			crowdfunded: bool,
+		) -> DispatchResult {
 			let creator = ensure_signed(origin)?;
 			let id = NextDistributionId::<T>::get();
 			let next_id = id.checked_add(1).ok_or(ArithmeticError::Overflow)?;
 
 			let stash_account = Self::stash_account(id);
-			let distribution_info = DistributionInfo::<T> { creator, asset_id, stash_account, crowdfunded, root_hash: None };
+			let distribution_info = DistributionInfo::<T> {
+				creator,
+				asset_id,
+				stash_account,
+				crowdfunded,
+				root_hash: None,
+			};
 
 			NextDistributionId::<T>::put(next_id);
 			DistributionInfos::<T>::insert(id, distribution_info);
@@ -274,6 +287,7 @@ pub mod pallet {
 			fund_max: Option<BalanceOf<T>>,
 			min_contribution: Option<BalanceOf<T>>,
 			max_contribution: Option<BalanceOf<T>>,
+			end_block: RelayChainBlockNumber,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let DistributionInfo { creator, crowdfunded, .. } =
@@ -283,12 +297,36 @@ pub mod pallet {
 			ensure!(who == creator, Error::<T>::CreatorOnly);
 
 			let crowdfund_info = CrowdfundInfo::<T> {
-				fund_min, fund_max, min_contribution, max_contribution, total_contributed: BalanceOf::<T>::zero(),
+				fund_min,
+				fund_max,
+				min_contribution,
+				max_contribution,
+				end_block,
+				total_contributed: BalanceOf::<T>::zero(),
 			};
 
 			CrowdfundInfos::<T>::insert(id, crowdfund_info);
 
-			Self::deposit_event(Event::<T>::CrowdfundConfigured { id, fund_min, fund_max, min_contribution, max_contribution });
+			Self::deposit_event(Event::<T>::CrowdfundConfigured {
+				id,
+				fund_min,
+				fund_max,
+				min_contribution,
+				max_contribution,
+			});
+
+			Ok(())
+		}
+
+		/// This extrinsic allows anyone to permissionlessly contribute to a crowdfund.
+		#[pallet::call_index(6)]
+		#[pallet::weight(Weight::default())]
+		pub fn contribute_crowdfund(
+			origin: OriginFor<T>,
+			id: DistributionId,
+			amount: BalanceOf<T>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
 
 			Ok(())
 		}
