@@ -36,9 +36,10 @@ pub mod pallet {
 	use super::*;
 	use frame_support::{
 		pallet_prelude::*,
-		sp_runtime::traits::{AccountIdConversion, Zero},
+		sp_runtime::traits::{AccountIdConversion, CheckedAdd, Zero},
 		sp_runtime::ArithmeticError,
-		traits::fungibles::Mutate,
+		traits::fungible::Mutate as _,
+		traits::fungibles::Mutate as _,
 		traits::{fungible, fungibles, tokens::Preservation},
 	};
 	use frame_system::pallet_prelude::*;
@@ -104,6 +105,17 @@ pub mod pallet {
 
 	// `AssetDistribution` storage maps from a `DistributionId` and `AccountId` to the amount of
 	#[pallet::storage]
+	pub type CrowdfundContributions<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		DistributionId,
+		Blake2_128Concat,
+		T::AccountId,
+		BalanceOf<T>,
+	>;
+
+	// `AssetDistribution` storage maps from a `DistributionId` and `AccountId` to the amount of
+	#[pallet::storage]
 	pub type AssetDistribution<T: Config> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
@@ -149,6 +161,14 @@ pub mod pallet {
 		CreatorOnly,
 		// The distribution is not crowdfunded.
 		NotCrowdfunded,
+		// Contribution is larger than the maximum allowed.
+		ContributionTooBig,
+		// Contribution is smaller than the minimum allowed.
+		ContributionTooSmall,
+		// Contribution limit for the crowdfund has been reached.
+		ContributionLimitReached,
+		// Contribution period has ended.
+		ContributionPeriodEnded,
 	}
 
 	// Dispatchable functions allows users to interact with the pallet and invoke state changes.
@@ -327,6 +347,47 @@ pub mod pallet {
 			amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+
+			let mut crowdfund_info =
+				CrowdfundInfos::<T>::get(id).ok_or(Error::<T>::NotCrowdfunded)?;
+
+			let DistributionInfo { stash_account, .. } =
+				DistributionInfos::<T>::get(id).ok_or(Error::<T>::DistributionIdDoesNotExist)?;
+
+			// Check Contribution Amount
+			ensure!(
+				crowdfund_info.max_contribution.map_or(true, |max| amount <= max),
+				Error::<T>::ContributionTooBig
+			);
+			ensure!(
+				crowdfund_info.min_contribution.map_or(true, |min| amount >= min),
+				Error::<T>::ContributionTooSmall
+			);
+
+			let new_total_contributed = crowdfund_info
+				.total_contributed
+				.checked_add(&amount)
+				.ok_or(ArithmeticError::Overflow)?;
+
+			// Check Contribution Limits
+			ensure!(
+				crowdfund_info.fund_max.map_or(true, |max| new_total_contributed <= max),
+				Error::<T>::ContributionLimitReached
+			);
+			let last_relay_block_number =
+				cumulus_pallet_parachain_system::Pallet::<T>::last_relay_block_number();
+			ensure!(
+				last_relay_block_number <= crowdfund_info.end_block,
+				Error::<T>::ContributionPeriodEnded
+			);
+
+			// Transfer funds and record contribution.
+			T::NativeBalance::transfer(&who, &stash_account, amount, Preservation::Preserve)?;
+			CrowdfundContributions::<T>::insert(&id, &who, amount);
+
+			// Update Crowdfund Total
+			crowdfund_info.total_contributed = new_total_contributed;
+			CrowdfundInfos::<T>::insert(id, crowdfund_info);
 
 			Ok(())
 		}
