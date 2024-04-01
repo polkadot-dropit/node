@@ -81,11 +81,12 @@ pub mod pallet {
 	#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
 	#[scale_info(skip_type_params(T))]
 	pub struct CrowdfundInfo<T: Config> {
-		pub fund_min: Option<BalanceOf<T>>,
+		pub fund_min: BalanceOf<T>,
 		pub fund_max: Option<BalanceOf<T>>,
-		pub min_contribution: Option<BalanceOf<T>>,
+		pub min_contribution: BalanceOf<T>,
 		pub max_contribution: Option<BalanceOf<T>>,
 		pub total_contributed: BalanceOf<T>,
+		pub total_claimed: BalanceOf<T>,
 		pub end_block: RelayChainBlockNumber,
 	}
 
@@ -144,9 +145,9 @@ pub mod pallet {
 		},
 		CrowdfundConfigured {
 			id: DistributionId,
-			fund_min: Option<BalanceOf<T>>,
+			fund_min: BalanceOf<T>,
 			fund_max: Option<BalanceOf<T>>,
-			min_contribution: Option<BalanceOf<T>>,
+			min_contribution: BalanceOf<T>,
 			max_contribution: Option<BalanceOf<T>>,
 		},
 	}
@@ -157,6 +158,8 @@ pub mod pallet {
 		DistributionIdDoesNotExist,
 		// The distribution does not exist.
 		DistributionDoesNotExist,
+		// Zero value is not allowed.
+		ZeroNotAllowed,
 		// The call is only accessible by the distribution creator.
 		CreatorOnly,
 		// The distribution is not crowdfunded.
@@ -223,6 +226,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		// TODO: Should be able to add logic which checks distributions are not greater than the amount of tokens available.
 		/// This adds a distribution entry for a single account and amount for `id`.
 		/// It is possible that this overwrites an existing entry, so the distribution `creator`
 		/// should take special care to remove duplicates before calling this function.
@@ -245,6 +249,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		// TODO: Should be able to add logic which checks distributions are not greater than the amount of tokens available.
 		/// This adds multiple distribution entries for a accounts and amounts for `id`.
 		/// It is possible that this overwrites an existing entries, so the distribution `creator`
 		/// should take special care to remove duplicates before calling this function.
@@ -268,9 +273,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// This adds multiple distribution entries for a accounts and amounts for `id`.
-		/// It is possible that this overwrites an existing entries, so the distribution `creator`
-		/// should take special care to remove duplicates before calling this function.
+		/// This allows anyone to permissionlessly distribute tokens on behalf of a recipient.
 		#[pallet::call_index(4)]
 		#[pallet::weight(Weight::default())]
 		pub fn claim_distribution(
@@ -303,13 +306,29 @@ pub mod pallet {
 		pub fn configure_crowdfund(
 			origin: OriginFor<T>,
 			id: DistributionId,
-			fund_min: Option<BalanceOf<T>>,
+			fund_min: BalanceOf<T>,
 			fund_max: Option<BalanceOf<T>>,
-			min_contribution: Option<BalanceOf<T>>,
+			min_contribution: BalanceOf<T>,
 			max_contribution: Option<BalanceOf<T>>,
 			end_block: RelayChainBlockNumber,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			ensure!(
+				max_contribution.map_or(true, |max| max > BalanceOf::<T>::zero()),
+				Error::<T>::ZeroNotAllowed
+			);
+			ensure!(
+				fund_max.map_or(true, |max| max > BalanceOf::<T>::zero()),
+				Error::<T>::ZeroNotAllowed
+			);
+			ensure!(
+				min_contribution > BalanceOf::<T>::zero(),
+				Error::<T>::ZeroNotAllowed
+			);
+			ensure!(
+				fund_min > BalanceOf::<T>::zero(),
+				Error::<T>::ZeroNotAllowed
+			);
 			let DistributionInfo { creator, crowdfunded, .. } =
 				DistributionInfos::<T>::get(id).ok_or(Error::<T>::DistributionIdDoesNotExist)?;
 
@@ -323,6 +342,7 @@ pub mod pallet {
 				max_contribution,
 				end_block,
 				total_contributed: BalanceOf::<T>::zero(),
+				total_claimed: BalanceOf::<T>::zero(),
 			};
 
 			CrowdfundInfos::<T>::insert(id, crowdfund_info);
@@ -356,11 +376,11 @@ pub mod pallet {
 
 			// Check Contribution Amount
 			ensure!(
-				crowdfund_info.max_contribution.map_or(true, |max| amount <= max),
+				crowdfund_info.max_contribution.map_or(true, |max| max >= amount),
 				Error::<T>::ContributionTooBig
 			);
 			ensure!(
-				crowdfund_info.min_contribution.map_or(true, |min| amount >= min),
+				crowdfund_info.min_contribution <= amount,
 				Error::<T>::ContributionTooSmall
 			);
 
@@ -371,7 +391,7 @@ pub mod pallet {
 
 			// Check Contribution Limits
 			ensure!(
-				crowdfund_info.fund_max.map_or(true, |max| new_total_contributed <= max),
+				crowdfund_info.fund_max.map_or(true, |max| max >= new_total_contributed),
 				Error::<T>::ContributionLimitReached
 			);
 			let last_relay_block_number =
@@ -381,13 +401,35 @@ pub mod pallet {
 				Error::<T>::ContributionPeriodEnded
 			);
 
-			// Transfer funds and record contribution.
+			// Transfer funds to stash account and record contribution.
 			T::NativeBalance::transfer(&who, &stash_account, amount, Preservation::Preserve)?;
 			CrowdfundContributions::<T>::insert(&id, &who, amount);
 
 			// Update Crowdfund Total
 			crowdfund_info.total_contributed = new_total_contributed;
 			CrowdfundInfos::<T>::insert(id, crowdfund_info);
+
+			Ok(())
+		}
+
+		/// This extrinsic allows anyone to permissionlessly claim the portion of tokens allocated to a crowdfund contributor.
+		#[pallet::call_index(7)]
+		#[pallet::weight(Weight::default())]
+		pub fn claim_crowdfund_distribution(
+			origin: OriginFor<T>,
+			id: DistributionId,
+			recipient: T::AccountId,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			let contribution_amount = CrowdfundContributions::<T>::get(id, recipient)
+				.ok_or(Error::<T>::DistributionDoesNotExist)?;
+
+			let mut crowdfund_info =
+				CrowdfundInfos::<T>::get(id).ok_or(Error::<T>::NotCrowdfunded)?;
+
+			let DistributionInfo { stash_account, .. } =
+				DistributionInfos::<T>::get(id).ok_or(Error::<T>::DistributionIdDoesNotExist)?;
 
 			Ok(())
 		}
