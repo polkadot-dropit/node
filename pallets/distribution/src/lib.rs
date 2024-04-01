@@ -36,10 +36,10 @@ pub mod pallet {
 	use super::*;
 	use frame_support::{
 		pallet_prelude::*,
-		sp_runtime::traits::{AccountIdConversion, CheckedAdd, Zero},
-		sp_runtime::ArithmeticError,
+		sp_runtime::traits::{AccountIdConversion, CheckedAdd, CheckedSub, Zero},
+		sp_runtime::{ArithmeticError, Perbill},
 		traits::fungible::Mutate as _,
-		traits::fungibles::Mutate as _,
+		traits::fungibles::{Inspect as _, Mutate as _},
 		traits::{fungible, fungibles, tokens::Preservation},
 	};
 	use frame_system::pallet_prelude::*;
@@ -281,7 +281,9 @@ pub mod pallet {
 			id: DistributionId,
 			recipient: T::AccountId,
 		) -> DispatchResult {
+			// Anyone can permissionlessly call this function.
 			let _ = ensure_signed(origin)?;
+
 			let DistributionInfo { asset_id, stash_account, .. } =
 				DistributionInfos::<T>::get(id).ok_or(Error::<T>::DistributionIdDoesNotExist)?;
 
@@ -321,14 +323,8 @@ pub mod pallet {
 				fund_max.map_or(true, |max| max > BalanceOf::<T>::zero()),
 				Error::<T>::ZeroNotAllowed
 			);
-			ensure!(
-				min_contribution > BalanceOf::<T>::zero(),
-				Error::<T>::ZeroNotAllowed
-			);
-			ensure!(
-				fund_min > BalanceOf::<T>::zero(),
-				Error::<T>::ZeroNotAllowed
-			);
+			ensure!(min_contribution > BalanceOf::<T>::zero(), Error::<T>::ZeroNotAllowed);
+			ensure!(fund_min > BalanceOf::<T>::zero(), Error::<T>::ZeroNotAllowed);
 			let DistributionInfo { creator, crowdfunded, .. } =
 				DistributionInfos::<T>::get(id).ok_or(Error::<T>::DistributionIdDoesNotExist)?;
 
@@ -379,10 +375,7 @@ pub mod pallet {
 				crowdfund_info.max_contribution.map_or(true, |max| max >= amount),
 				Error::<T>::ContributionTooBig
 			);
-			ensure!(
-				crowdfund_info.min_contribution <= amount,
-				Error::<T>::ContributionTooSmall
-			);
+			ensure!(crowdfund_info.min_contribution <= amount, Error::<T>::ContributionTooSmall);
 
 			let new_total_contributed = crowdfund_info
 				.total_contributed
@@ -420,16 +413,45 @@ pub mod pallet {
 			id: DistributionId,
 			recipient: T::AccountId,
 		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
+			// Anyone can permissionlessly call this function.
+			let _ = ensure_signed(origin)?;
 
-			let contribution_amount = CrowdfundContributions::<T>::get(id, recipient)
+			// Remove contribution record at the same time as reading the info.
+			let contribution_amount = CrowdfundContributions::<T>::take(id, &recipient)
 				.ok_or(Error::<T>::DistributionDoesNotExist)?;
 
 			let mut crowdfund_info =
 				CrowdfundInfos::<T>::get(id).ok_or(Error::<T>::NotCrowdfunded)?;
 
-			let DistributionInfo { stash_account, .. } =
+			let DistributionInfo { asset_id, stash_account, .. } =
 				DistributionInfos::<T>::get(id).ok_or(Error::<T>::DistributionIdDoesNotExist)?;
+
+			// This calculates the amount of contributions which can still claim their distribution.
+			let claimable = crowdfund_info
+				.total_contributed
+				.checked_sub(&crowdfund_info.total_claimed)
+				.ok_or(ArithmeticError::Underflow)?;
+			ensure!(claimable > BalanceOf::<T>::zero(), Error::<T>::ZeroNotAllowed);
+			let new_total_claimed = crowdfund_info
+				.total_claimed
+				.checked_add(&contribution_amount)
+				.ok_or(ArithmeticError::Overflow)?;
+			// This will calculate the percentage of tokens the recipient can claim, based on their contribution size, and the outstanding amount to be claimed.
+			let claim_percentage = Perbill::from_rational(contribution_amount, claimable);
+			// This calculates the total amount of tokens that should be sent. A percentage of the total balance.
+			let token_balance = T::Fungibles::total_balance(asset_id.clone(), &stash_account);
+			let claimable_tokens = claim_percentage * token_balance;
+
+			// Transfer the funds and update all storage.
+			T::Fungibles::transfer(
+				asset_id,
+				&stash_account,
+				&recipient,
+				claimable_tokens,
+				Preservation::Expendable,
+			)?;
+			crowdfund_info.total_claimed = new_total_claimed;
+			CrowdfundInfos::<T>::insert(id, crowdfund_info);
 
 			Ok(())
 		}
