@@ -25,7 +25,9 @@ frame-system = { workspace = true, default-features = false }
 sp-std = { workspace = true, default-features = false }
 sp-runtime = { workspace = true, default-features = false }
 pallet-collective = { workspace = true, default-features = false }
-cumulus-pallet-parachain-system = { workspace = true, default-features = false }
+cumulus-pallet-parachain-system = { workspace = true, default-features = false, features = [
+  "parameterized-consensus-hook",
+] }
 polkadot-parachain-primitives = { workspace = true, default-features = false }
 
 [dev-dependencies]

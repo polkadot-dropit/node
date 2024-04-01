@@ -67,6 +67,7 @@ impl cumulus_pallet_parachain_system::Config for Test {
 	type XcmpMessageHandler = ();
 	type ReservedXcmpWeight = ();
 	type CheckAssociatedRelayNumber = AnyRelayNumber;
+	type ConsensusHook = cumulus_pallet_parachain_system::consensus_hook::ExpectParentIncluded;
 }
 
 impl pallet_balances::Config for Test {
