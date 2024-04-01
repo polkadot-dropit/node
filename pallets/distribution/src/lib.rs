@@ -214,8 +214,12 @@ pub mod pallet {
 		/// should take special care to remove duplicates before calling this function.
 		#[pallet::call_index(4)]
 		#[pallet::weight(Weight::default())]
-		pub fn claim_distribution(origin: OriginFor<T>, id: DistributionId) -> DispatchResult {
-			let recipient = ensure_signed(origin)?;
+		pub fn claim_distribution(
+			origin: OriginFor<T>,
+			id: DistributionId,
+			recipient: T::AccountId,
+		) -> DispatchResult {
+			let _ = ensure_signed(origin)?;
 			let Info { asset_id, stash_account, .. } =
 				DistributionInfo::<T>::get(id).ok_or(Error::<T>::DistributionIdDoesNotExist)?;
 
