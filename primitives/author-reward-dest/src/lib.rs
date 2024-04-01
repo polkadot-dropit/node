@@ -3,7 +3,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use parity_scale_codec::{Decode, Encode};
-use sp_inherents::{InherentData, InherentIdentifier, IsFatalError};
+use sp_inherents::{InherentIdentifier, IsFatalError};
 
 /// The identifier for the `set_author_reward_dest` inherent.
 pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"authrdst";
@@ -67,7 +67,7 @@ impl core::ops::Deref for InherentDataProvider {
 impl sp_inherents::InherentDataProvider for InherentDataProvider {
 	async fn provide_inherent_data(
 		&self,
-		inherent_data: &mut InherentData,
+		inherent_data: &mut sp_inherents::InherentData,
 	) -> Result<(), sp_inherents::Error> {
 		inherent_data.put_data(INHERENT_IDENTIFIER, &self.author_reward_dest)
 	}
