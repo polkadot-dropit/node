@@ -731,7 +731,7 @@ parameter_types! {
 	pub const ProposalBondMinimum: Balance = 0;
 	pub const ProposalBondMaximum: Option<Balance> = Option::None;
 	pub const SpendPeriod: BlockNumber = 24 * DAYS;
-	pub const Burn: Permill = Permill::from_percent(1);
+	pub const Burn: Permill = Permill::zero();
 	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 	pub const PayoutSpendPeriod: BlockNumber = 30 * DAYS;
 	pub const MaxApprovals: u32 = 100;
