@@ -54,7 +54,9 @@ impl OnUnbalanced<NegativeImbalance<Runtime>> for ToAuthor {
 		if let Some(author) = <pallet_author_reward_dest::Pallet<Runtime>>::author() {
 			Balances::resolve_creating(&author, amount);
 		} else {
-			log::error!("Author reward destination not available, but is mandatory, fall back to treasury");
+			log::error!(
+				"Author reward destination not available, but is mandatory, fall back to treasury"
+			);
 			<Treasury as OnUnbalanced<_>>::on_unbalanced(amount);
 		}
 	}

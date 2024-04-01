@@ -131,7 +131,7 @@ mod tests {
 	}
 
 	#[test]
-	fn sets_author() {
+	fn set_author_test() {
 		new_test_ext().execute_with(|| {
 			System::reset_events();
 
@@ -170,7 +170,6 @@ mod tests {
 		});
 	}
 
-	// Test should panic:
 	#[test]
 	#[should_panic = "`set_author_reward_dest` inherent must be present"]
 	fn author_not_set() {
