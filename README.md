@@ -80,6 +80,6 @@ parathreads [here](https://wiki.polkadot.network/docs/learn-parathreads).
 
  Parachain governance is a very crucial topic that goes beyond using `sudo` for privileged calls. [Read our Governance Explainer here](./docs/governance.md)
 
-### Run a collator
+## Run a collator
 
 The destination address for receiving part of fees and tip must be set through the environment variable: `DROPIT_AUTHOR_REWARD_DEST` with the format SS58.

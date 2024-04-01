@@ -28,7 +28,7 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_finalize(_: BlockNumberFor<T>) {
 			// ensure we never go to trie with these values.
-			<Author<T>>::take().expect("Inherent must be present");
+			<Author<T>>::take().expect("`set_author_reward_dest` inherent must be present");
 		}
 	}
 
@@ -98,7 +98,7 @@ mod tests {
 	use super::*;
 	use crate as pallet_author_reward_dest;
 	use frame_support::{
-		derive_impl,
+		assert_noop, derive_impl,
 		inherent::{InherentData, ProvideInherent},
 		traits::{OnFinalize, UnfilteredDispatchable},
 	};
@@ -131,14 +131,11 @@ mod tests {
 	}
 
 	#[test]
-	fn sets_author_lazily() {
+	fn sets_author() {
 		new_test_ext().execute_with(|| {
 			System::reset_events();
 
 			let mut inherent_data = InherentData::new();
-			AuthorRewardDest::is_inherent_required(&inherent_data)
-				.expect("Must be OK")
-				.expect("Is mandatory");
 
 			let author = AccountId32::new([1; 32]);
 			inherent_data.put_data(INHERENT_IDENTIFIER, &author).unwrap();
@@ -151,8 +148,17 @@ mod tests {
 			assert_eq!(AuthorRewardDest::author(), None);
 
 			inherent_extrinsic
+				.clone()
 				.dispatch_bypass_filter(frame_system::RawOrigin::None.into())
 				.unwrap();
+
+			assert_eq!(Author::<Test>::get(), Some(author.clone()));
+			assert_eq!(AuthorRewardDest::author(), Some(author.clone()));
+
+			assert_noop!(
+				inherent_extrinsic.dispatch_bypass_filter(frame_system::RawOrigin::None.into()),
+				crate::Error::<Test>::AlreadySet,
+			);
 
 			assert_eq!(Author::<Test>::get(), Some(author.clone()));
 			assert_eq!(AuthorRewardDest::author(), Some(author.clone()));
@@ -161,6 +167,16 @@ mod tests {
 
 			assert_eq!(Author::<Test>::get(), None);
 			assert_eq!(AuthorRewardDest::author(), None);
+		});
+	}
+
+	// Test should panic:
+	#[test]
+	#[should_panic = "`set_author_reward_dest` inherent must be present"]
+	fn author_not_set() {
+		new_test_ext().execute_with(|| {
+			System::reset_events();
+			AuthorRewardDest::on_finalize(System::block_number());
 		});
 	}
 }
