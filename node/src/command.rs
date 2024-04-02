@@ -4,6 +4,7 @@ use cumulus_primitives_core::ParaId;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
 use log::info;
 
+use cumulus_client_service::storage_proof_size::HostFunctions as ReclaimHostFunctions;
 use dropit_runtime::common::Block;
 use sc_cli::{
 	ChainSpec, CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams,
@@ -242,29 +243,34 @@ pub fn run() -> Result<()> {
 		},
 		Some(Subcommand::Benchmark(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
+
 			// Switch on the concrete benchmark sub-command-
 			match cmd {
 				BenchmarkCmd::Pallet(cmd) => {
 					if cfg!(feature = "runtime-benchmarks") {
 						runner.sync_run(|config| {
-							cmd.run::<sp_runtime::traits::HashingFor<Block>, ()>(config)
+							cmd.run::<sp_runtime::traits::HashingFor<Block>, ReclaimHostFunctions>(
+								config,
+							)
 						})
 					} else {
 						Err("Benchmarking wasn't enabled when building the node. \
-					You can enable it with `--features runtime-benchmarks`."
+				You can enable it with `--features runtime-benchmarks`."
 							.into())
 					}
 				},
-
 				BenchmarkCmd::Block(cmd) => runner.sync_run(|config| {
 					construct_benchmark_partials!(config, |partials| cmd.run(partials.client))
 				}),
 				#[cfg(not(feature = "runtime-benchmarks"))]
-				BenchmarkCmd::Storage(_) => Err(sc_cli::Error::Input(
-					"Compile with --features=runtime-benchmarks \
+				BenchmarkCmd::Storage(_) => {
+					return Err(sc_cli::Error::Input(
+						"Compile with --features=runtime-benchmarks \
 						to enable storage benchmarks."
-						.to_string(),
-				)),
+							.into(),
+					)
+					.into())
+				},
 				#[cfg(feature = "runtime-benchmarks")]
 				BenchmarkCmd::Storage(cmd) => runner.sync_run(|config| {
 					construct_benchmark_partials!(config, |partials| {

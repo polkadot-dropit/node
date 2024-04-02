@@ -768,6 +768,7 @@ impl pallet_treasury::Config for Runtime {
 
 impl pallet_author_reward_dest::Config for Runtime {
 	type AccountIdType = AccountId;
+	type WeightInfo = ();
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -814,6 +815,7 @@ mod benches {
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_balances, Balances]
 		[pallet_assets, Assets]
+		[pallet_author_reward_dest, AuthorRewardDest]
 		[pallet_nfts, Nfts]
 		[pallet_scheduler, Scheduler]
 		[pallet_timestamp, Timestamp]

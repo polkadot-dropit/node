@@ -5,6 +5,12 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+
+pub mod weights;
+use weights::WeightInfo;
+
 use primitives_author_reward_dest::{InherentError, InherentType, INHERENT_IDENTIFIER};
 
 pub use pallet::*;
@@ -19,6 +25,8 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// The type `Self::AccountId` but with additional constraint.
 		type AccountIdType: IsType<<Self as frame_system::Config>::AccountId> + From<InherentType>;
+		/// Type representing the weight of this pallet
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::pallet]
@@ -43,7 +51,7 @@ pub mod pallet {
 		/// Set the author reward destination for the block.
 		#[pallet::call_index(0)]
 		#[pallet::weight((
-			T::DbWeight::get().writes(1),
+			T::WeightInfo::set_author_reward_dest(),
 			DispatchClass::Mandatory
 		))]
 		pub fn set_author_reward_dest(origin: OriginFor<T>, dest: T::AccountId) -> DispatchResult {
@@ -123,9 +131,10 @@ mod tests {
 
 	impl pallet::Config for Test {
 		type AccountIdType = AccountId32;
+		type WeightInfo = ();
 	}
 
-	fn new_test_ext() -> sp_io::TestExternalities {
+	pub fn new_test_ext() -> sp_io::TestExternalities {
 		let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 		t.into()
 	}
