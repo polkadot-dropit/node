@@ -27,6 +27,9 @@ use sc_service::{Configuration, PartialComponents, TFullBackend, TFullClient, Ta
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 
+use sp_core::crypto::Ss58Codec;
+use sp_runtime::AccountId32;
+
 use substrate_prometheus_endpoint::Registry;
 
 // Local Runtime types
@@ -185,7 +188,27 @@ fn start_relay_chain_consensus(
 
 					let time = sp_timestamp::InherentDataProvider::from_system_time();
 
-					Ok((time, parachain_inherent))
+					let env_var = "DROPIT_AUTHOR_REWARD_DEST";
+					let key = std::env::var(env_var).map_err(|e| {
+						Box::<dyn std::error::Error + Send + Sync>::from(format!(
+							"Failed to get author reward destination from environment variable \
+								`{}`: {:?}",
+							env_var, e
+						))
+					})?;
+
+					let key = AccountId32::from_string(key.as_str()).map_err(|e| {
+						Box::<dyn std::error::Error + Send + Sync>::from(format!(
+							"Failed to convert author reward destination key as SS58 format to \
+								AccountId32: {:?}",
+							e
+						))
+					})?;
+
+					let author_reward_dest =
+						primitives_author_reward_dest::InherentDataProvider::new(key);
+
+					Ok((author_reward_dest, time, parachain_inherent))
 				}
 			},
 		},

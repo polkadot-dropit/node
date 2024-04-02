@@ -23,6 +23,7 @@ addToGenesis = false
   image = "{{COL_IMAGE}}"
   command = "./target/release/parachain-template-node"
   args = [ "-lruntime=debug,parachain=trace" ]
+  env = [{ name = "DROPIT_AUTHOR_REWARD_DEST", value = "5GNJqTPyNqANBkUVMN1LPPrxXnFouWXoe2wNSmmEoLctxiZY" }]
 
 [types.Header]
 number = "u64"

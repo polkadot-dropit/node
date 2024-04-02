@@ -2,7 +2,12 @@
 panic = "unwind"
 
 [workspace]
-members = ["node", "pallets/*", "runtime"]
+members = [
+  "node",
+  "pallets/*",
+  "runtime",
+  "primitives/author-reward-dest",
+]
 resolver = "2"
 
 [workspace.package]
@@ -28,10 +33,14 @@ scale-info = { version = "2.11.1", default-features = false }
 serde = { version = "1.0.197", features = ["derive"] }
 serde_json = "1.0.114"
 smallvec = "1.13.2"
+async-trait = { version = "0.1.74" }
+thiserror = { version = "1.0.48" }
 
 # Local dependencies
 dropit-runtime = { path = "runtime" }
 pallet-motion = { path = "pallets/motion", default-features = false }
+pallet-author-reward-dest = { path = "pallets/author-reward-dest", default-features = false }
+primitives-author-reward-dest = { path = "primitives/author-reward-dest", default-features = false }
 
 # Substrate
 frame-benchmarking = { version = "31.0.0", default-features = false }
@@ -56,6 +65,7 @@ pallet-timestamp = { version = "30.0.0", default-features = false }
 pallet-transaction-payment = { version = "31.0.0", default-features = false }
 pallet-transaction-payment-rpc = { version = "33.0.0" }
 pallet-transaction-payment-rpc-runtime-api = { version = "31.0.0", default-features = false }
+pallet-treasury = { version = "30.0.0", default-features = false }
 pallet-utility = { version = "31.0.0", default-features = false }
 pallet-safe-mode = { version = "12.0.0", default-features = false }
 pallet-tx-pause = { version = "12.0.0", default-features = false }
