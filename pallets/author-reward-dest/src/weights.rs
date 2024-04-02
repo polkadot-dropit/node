@@ -35,22 +35,6 @@ pub trait WeightInfo {
 	fn set_author_reward_dest() -> Weight;
 }
 
-/// Weights for `pallet_author_reward_dest` using the Substrate node and recommended hardware.
-pub struct SubstrateWeight<T>(PhantomData<T>);
-impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-	/// Storage: `AuthorRewardDest::Author` (r:1 w:1)
-	/// Proof: `AuthorRewardDest::Author` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `MaxEncodedLen`)
-	fn set_author_reward_dest() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `42`
-		//  Estimated: `1517`
-		// Minimum execution time: 4_000_000 picoseconds.
-		Weight::from_parts(5_000_000, 1517)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
-	}
-}
-
 // For backwards compatibility and tests.
 impl WeightInfo for () {
 	/// Storage: `AuthorRewardDest::Author` (r:1 w:1)

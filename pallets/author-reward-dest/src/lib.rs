@@ -131,6 +131,7 @@ mod tests {
 
 	impl pallet::Config for Test {
 		type AccountIdType = AccountId32;
+		type WeightInfo = ();
 	}
 
 	pub fn new_test_ext() -> sp_io::TestExternalities {

@@ -768,7 +768,7 @@ impl pallet_treasury::Config for Runtime {
 
 impl pallet_author_reward_dest::Config for Runtime {
 	type AccountIdType = AccountId;
-	type WeightInfo = pallet_author_reward_dest::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = ();
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
