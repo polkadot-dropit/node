@@ -152,6 +152,7 @@ runtime-benchmarks = [
   "frame-system-benchmarking/runtime-benchmarks",
   "frame-system/runtime-benchmarks",
   "pallet-assets/runtime-benchmarks",
+  "pallet-author-reward-dest/runtime-benchmarks",
   "pallet-balances/runtime-benchmarks",
   "pallet-collective/runtime-benchmarks",
   "pallet-motion/runtime-benchmarks",

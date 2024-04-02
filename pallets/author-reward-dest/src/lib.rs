@@ -5,6 +5,9 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+
 use primitives_author_reward_dest::{InherentError, InherentType, INHERENT_IDENTIFIER};
 
 pub use pallet::*;
@@ -125,7 +128,7 @@ mod tests {
 		type AccountIdType = AccountId32;
 	}
 
-	fn new_test_ext() -> sp_io::TestExternalities {
+	pub fn new_test_ext() -> sp_io::TestExternalities {
 		let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 		t.into()
 	}
